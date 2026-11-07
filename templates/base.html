@@ -4,27 +4,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Campus Canteen</title>
+    <meta name="theme-color" content="#176b4d">
+    <meta name="description" content="Browse the campus canteen menu, place pickup orders, and track your order status.">
+    <title>{% block title %}Campus Canteen{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
 <header class="navbar">
-    <a href="{{ url_for('home') }}" class="logo">🍽️ Campus Canteen</a>
+    <a href="{{ url_for('home') }}" class="logo">Campus Canteen</a>
 
     <nav>
         {% if session.get('user_id') %}
             {% if session.get('role') == 'admin' %}
-                <a href="{{ url_for('admin') }}">Dashboard</a>
+                <a href="{{ url_for('admin') }}" {% if request.endpoint == 'admin' %}aria-current="page"{% endif %}>Dashboard</a>
             {% else %}
-                <a href="{{ url_for('menu') }}">Menu</a>
-                <a href="{{ url_for('cart') }}">🛒 Cart</a>
-                <a href="{{ url_for('orders') }}">My Orders</a>
+                <a href="{{ url_for('menu') }}" {% if request.endpoint == 'menu' %}aria-current="page"{% endif %}>Menu</a>
+                <a href="{{ url_for('cart') }}" {% if request.endpoint == 'cart' %}aria-current="page"{% endif %}>Cart</a>
+                <a href="{{ url_for('orders') }}" {% if request.endpoint == 'orders' %}aria-current="page"{% endif %}>My Orders</a>
             {% endif %}
             <a href="{{ url_for('logout') }}">Logout</a>
         {% else %}
-            <a href="{{ url_for('login') }}">Login</a>
-            <a href="{{ url_for('register') }}">Register</a>
+            <a href="{{ url_for('login') }}" {% if request.endpoint == 'login' %}aria-current="page"{% endif %}>Login</a>
+            <a href="{{ url_for('register') }}" {% if request.endpoint == 'register' %}aria-current="page"{% endif %}>Register</a>
         {% endif %}
     </nav>
 </header>
@@ -42,7 +44,7 @@
 </main>
 
 <footer>
-    <p>© 2026 Campus Canteen Ordering System</p>
+    <p>Campus Canteen · Fresh food, easy pickup</p>
 </footer>
 
 </body>

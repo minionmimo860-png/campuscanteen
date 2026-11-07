@@ -298,7 +298,12 @@ def add_to_cart(food_id):
     cart = session.get("cart", {})
     key = str(food_id)
 
-    cart[key] = cart.get(key, 0) + 1
+    quantity = cart.get(key, 0)
+    if quantity >= 50:
+        flash("You can order up to 50 of each item.", "warning")
+        return redirect(url_for("menu"))
+
+    cart[key] = quantity + 1
 
     session["cart"] = cart
 

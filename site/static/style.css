@@ -220,6 +220,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     color: #26372e;
 }
 .form-stack input:focus, .status-form select:focus { border-color: var(--green); outline: 3px solid rgba(23, 107, 77, .12); }
+.auth-confirmation { margin: 0 0 18px; padding: 14px; border: 1px solid #d5e8d8; border-radius: 12px; background: #f0f7f1; }
+.auth-confirmation p { margin: 0 0 12px; color: #345344; font-size: .88rem; line-height: 1.55; }
 .auth-footnote { margin: 22px 0 0; color: var(--muted); font-size: .79rem; text-align: center; }
 
 .setup-card { max-width: 650px; margin: 90px auto; }

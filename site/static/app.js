@@ -51,7 +51,7 @@ function configIsReady() {
         && !config.supabaseAnonKey.includes("YOUR_SUPABASE");
 }
 
-function renderAuth(mode = "login") {
+function renderAuth(mode = "login", { email = "", confirmationMessage = "" } = {}) {
     const registering = mode === "register";
     accountBar.innerHTML = "";
     root.innerHTML = `
@@ -69,6 +69,11 @@ function renderAuth(mode = "login") {
                 </div>
                 <h2>${registering ? "Join the canteen" : "Welcome back"}</h2>
                 <p class="muted">${registering ? "Create your student account to start ordering." : "Sign in to browse the menu and see your orders."}</p>
+                ${!registering && confirmationMessage ? `
+                <div class="auth-confirmation" role="status">
+                    <p>${escapeHtml(confirmationMessage)}</p>
+                    <button class="button button-secondary button-wide" data-action="resend-confirmation" data-email="${escapeHtml(email)}" type="button">Resend confirmation email</button>
+                </div>` : ""}
                 <form id="auth-form" class="form-stack" data-mode="${registering ? "register" : "login"}">
                     ${registering ? `
                     <label>Full name
@@ -78,7 +83,7 @@ function renderAuth(mode = "login") {
                         <input name="username" autocomplete="username" minlength="3" maxlength="30" required>
                     </label>` : ""}
                     <label>Email address
-                        <input name="email" type="email" autocomplete="email" required>
+                        <input name="email" type="email" autocomplete="email" value="${escapeHtml(email)}" required>
                     </label>
                     <label>Password
                         <input name="password" type="password" autocomplete="${registering ? "new-password" : "current-password"}" minlength="${registering ? "8" : "1"}" required>
@@ -344,18 +349,40 @@ async function submitAuth(form) {
         const { data, error } = await client.auth.signUp({
             email,
             password,
-            options: { data: { name, username } }
+            options: {
+                data: { name, username },
+                emailRedirectTo: window.location.href
+            }
         });
         if (error) throw error;
         if (!data.session) {
-            renderAuth("login");
-            showNotice("Account created. Check your email to confirm your account, then sign in.", "success");
+            renderAuth("login", {
+                email,
+                confirmationMessage: "Account created. Open the confirmation link we emailed you before signing in. Check your spam folder if it is missing."
+            });
         }
         return;
     }
 
     const { error } = await client.auth.signInWithPassword({ email, password });
+    if (error?.code === "email_not_confirmed") {
+        renderAuth("login", {
+            email,
+            confirmationMessage: "This account's email is not confirmed yet. Open the confirmation link in your inbox, or resend it below."
+        });
+        return;
+    }
     if (error) throw error;
+}
+
+async function resendConfirmation(email) {
+    const { error } = await client.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: window.location.href }
+    });
+    if (error) throw error;
+    showNotice("Confirmation email sent. Open the latest link in your inbox, then sign in.", "success");
 }
 
 async function placeOrder() {
@@ -442,6 +469,18 @@ document.addEventListener("click", async (event) => {
         } else if (action === "logout") {
             const { error } = await client.auth.signOut();
             if (error) throw error;
+        } else if (action === "resend-confirmation") {
+            const email = actionButton.dataset.email || root.querySelector('#auth-form input[name="email"]')?.value.trim();
+            if (!email) {
+                showNotice("Enter your email address first.", "error");
+                return;
+            }
+            actionButton.disabled = true;
+            try {
+                await resendConfirmation(email);
+            } finally {
+                actionButton.disabled = false;
+            }
         } else if (action === "refresh-admin") {
             await loadAdminDashboard();
         }

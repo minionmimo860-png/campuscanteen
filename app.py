@@ -10,6 +10,13 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or os.urandom(32)
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=(
+        os.environ.get("SESSION_COOKIE_SECURE", "").lower() == "true"
+    ),
+)
 
 DATABASE = os.environ.get("DATABASE_PATH", "canteen.db")
 

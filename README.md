@@ -6,7 +6,7 @@ A static campus canteen ordering website hosted on GitHub Pages, with Supabase p
 
 1. Create a Supabase project.
 2. In the Supabase SQL Editor, run [`supabase/schema.sql`](./supabase/schema.sql). This creates the menu and order tables, enables row-level security, and seeds the menu.
-3. In Supabase **Authentication → Providers → Email**, enable email/password sign-in and keep email confirmation enabled. After creating an account, users must open the confirmation link sent to their email before signing in. The website can resend the link if needed.
+3. In Supabase **Authentication → Providers → Email**, enable email/password sign-in and keep email confirmation enabled. After creating an account, users must open the confirmation link sent to their email before signing in. The website can resend the link if needed. Users can request a password reset from the sign-in screen; configure Supabase email templates and SMTP delivery for production.
 4. In `site/static/config.js`, set the Supabase project URL and **publishable/anon key** from **Project Settings → API**. This key is intended for browser use; never put a `service_role` or secret key in this file.
 
 ## Publish on GitHub Pages

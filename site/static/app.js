@@ -19,6 +19,7 @@ let cart = {};
 let activeView = "menu";
 let noticeTimer;
 let adminRefreshTimer;
+let isPasswordRecovery = false;
 
 function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -51,7 +52,11 @@ function configIsReady() {
         && !config.supabaseAnonKey.includes("YOUR_SUPABASE");
 }
 
-function renderAuth(mode = "login", { email = "", confirmationMessage = "" } = {}) {
+function renderAuth(mode = "login", {
+    email = "",
+    confirmationMessage = "",
+    showResendConfirmation = true
+} = {}) {
     const registering = mode === "register";
     accountBar.innerHTML = "";
     root.innerHTML = `
@@ -72,7 +77,7 @@ function renderAuth(mode = "login", { email = "", confirmationMessage = "" } = {
                 ${!registering && confirmationMessage ? `
                 <div class="auth-confirmation" role="status">
                     <p>${escapeHtml(confirmationMessage)}</p>
-                    <button class="button button-secondary button-wide" data-action="resend-confirmation" data-email="${escapeHtml(email)}" type="button">Resend confirmation email</button>
+                    ${showResendConfirmation ? `<button class="button button-secondary button-wide" data-action="resend-confirmation" data-email="${escapeHtml(email)}" type="button">Resend confirmation email</button>` : ""}
                 </div>` : ""}
                 <form id="auth-form" class="form-stack" data-mode="${registering ? "register" : "login"}">
                     ${registering ? `
@@ -90,7 +95,56 @@ function renderAuth(mode = "login", { email = "", confirmationMessage = "" } = {
                     </label>
                     <button class="button button-primary button-wide" type="submit">${registering ? "Create account" : "Sign in"}</button>
                 </form>
+                ${!registering ? `<button class="text-button" data-view="forgot-password" data-email="${escapeHtml(email)}" type="button">Forgot password?</button>` : ""}
                 <p class="auth-footnote">Pickup orders only. Payment is made at the canteen.</p>
+            </div>
+        </section>`;
+}
+
+function renderForgotPassword(email = "") {
+    accountBar.innerHTML = "";
+    root.innerHTML = `
+        <section class="auth-layout">
+            <div class="auth-intro">
+                <span class="eyebrow">ACCOUNT RECOVERY</span>
+                <h1>Let’s get you<br><span>back in.</span></h1>
+                <p>Enter the email address used for your account. We’ll send a secure link to reset your password.</p>
+            </div>
+            <div class="auth-card">
+                <h2>Reset your password</h2>
+                <p class="muted">We’ll email you a link to choose a new password.</p>
+                <form id="forgot-password-form" class="form-stack">
+                    <label>Email address
+                        <input name="email" type="email" autocomplete="email" value="${escapeHtml(email)}" required>
+                    </label>
+                    <button class="button button-primary button-wide" type="submit">Send reset link</button>
+                </form>
+                <button class="text-button" data-view="login" data-email="${escapeHtml(email)}" type="button">Back to sign in</button>
+            </div>
+        </section>`;
+}
+
+function renderPasswordUpdate() {
+    accountBar.innerHTML = "";
+    root.innerHTML = `
+        <section class="auth-layout">
+            <div class="auth-intro">
+                <span class="eyebrow">ACCOUNT RECOVERY</span>
+                <h1>Choose a<br><span>new password.</span></h1>
+                <p>Set a new password for your Campus Canteen account.</p>
+            </div>
+            <div class="auth-card">
+                <h2>Set new password</h2>
+                <p class="muted">Use at least 8 characters.</p>
+                <form id="update-password-form" class="form-stack">
+                    <label>New password
+                        <input name="password" type="password" autocomplete="new-password" minlength="8" required>
+                    </label>
+                    <label>Confirm new password
+                        <input name="confirm-password" type="password" autocomplete="new-password" minlength="8" required>
+                    </label>
+                    <button class="button button-primary button-wide" type="submit">Update password</button>
+                </form>
             </div>
         </section>`;
 }
@@ -282,6 +336,10 @@ async function loadAdminDashboard() {
 }
 
 async function onSession(session) {
+    if (isPasswordRecovery) {
+        renderPasswordUpdate();
+        return;
+    }
     currentUser = session?.user || null;
     if (!currentUser) {
         window.clearInterval(adminRefreshTimer);
@@ -385,6 +443,37 @@ async function resendConfirmation(email) {
     showNotice("Confirmation email sent. Open the latest link in your inbox, then sign in.", "success");
 }
 
+async function requestPasswordReset(form) {
+    const email = String(new FormData(form).get("email")).trim().toLowerCase();
+    const { error } = await client.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}${window.location.pathname}`
+    });
+    if (error) throw error;
+    renderAuth("login", {
+        email,
+        confirmationMessage: "If an account uses that email, a password reset link is on its way. Check your inbox and spam folder.",
+        showResendConfirmation: false
+    });
+}
+
+async function updatePassword(form) {
+    const values = new FormData(form);
+    const password = String(values.get("password"));
+    const confirmPassword = String(values.get("confirm-password"));
+    if (password !== confirmPassword) {
+        showNotice("The passwords do not match.", "error");
+        return;
+    }
+
+    const { error } = await client.auth.updateUser({ password });
+    if (error) throw error;
+    isPasswordRecovery = false;
+    const { data, error: sessionError } = await client.auth.getSession();
+    if (sessionError) throw sessionError;
+    await onSession(data.session);
+    showNotice("Your password has been updated.", "success");
+}
+
 async function placeOrder() {
     const items = Object.entries(cart).map(([foodId, quantity]) => ({
         food_id: Number(foodId),
@@ -427,7 +516,9 @@ document.addEventListener("click", async (event) => {
     if (viewButton) {
         const view = viewButton.dataset.view;
         if (view === "login" || view === "register") {
-            renderAuth(view);
+            renderAuth(view, { email: viewButton.dataset.email || "" });
+        } else if (view === "forgot-password") {
+            renderForgotPassword(viewButton.dataset.email || "");
         } else if (view === "menu") {
             renderMenu();
         } else if (view === "cart") {
@@ -493,10 +584,16 @@ root.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.target;
     try {
-        if (form.id === "auth-form") {
+        if (form.id === "auth-form" || form.id === "forgot-password-form" || form.id === "update-password-form") {
             const submitButton = form.querySelector('button[type="submit"]');
             submitButton.disabled = true;
-            await submitAuth(form);
+            if (form.id === "auth-form") {
+                await submitAuth(form);
+            } else if (form.id === "forgot-password-form") {
+                await requestPasswordReset(form);
+            } else {
+                await updatePassword(form);
+            }
             submitButton.disabled = false;
         } else if (form.matches(".status-form")) {
             await updateOrderStatus(form);
@@ -520,7 +617,12 @@ if (!configIsReady()) {
 } else {
     try {
         client = createClient(config.supabaseUrl, config.supabaseAnonKey);
-        client.auth.onAuthStateChange((_event, session) => {
+        client.auth.onAuthStateChange((event, session) => {
+            if (event === "PASSWORD_RECOVERY") {
+                isPasswordRecovery = true;
+                renderPasswordUpdate();
+                return;
+            }
             window.setTimeout(() => onSession(session).catch(handleError), 0);
         });
         const { data, error } = await client.auth.getSession();

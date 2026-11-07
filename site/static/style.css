@@ -205,6 +205,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     font-weight: 700;
 }
 .switch-button.active { background: #fff; color: var(--green-dark); box-shadow: 0 2px 6px rgba(31, 54, 42, .08); }
+.text-button { width: 100%; margin-top: 12px; padding: 8px; border: 0; background: transparent; color: var(--green); font-size: .88rem; font-weight: 700; }
+.text-button:hover { color: var(--green-dark); text-decoration: underline; }
 .auth-card h2, .setup-card h1 { margin: 0 0 7px; font-size: 1.65rem; letter-spacing: -.04em; }
 .muted, .auth-card > p { color: var(--muted); }
 .auth-card > .muted { margin: 0 0 22px; font-size: .92rem; }

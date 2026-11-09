@@ -88,10 +88,13 @@ function renderAuth(mode = "login", {
                         <input name="username" autocomplete="username" minlength="3" maxlength="30" required>
                     </label>` : ""}
                     <label>Email address
-                        <input name="email" type="email" autocomplete="email" value="${escapeHtml(email)}" required>
+                        <input name="email" type="email" autocomplete="email" value="${escapeHtml(email)}" ${registering ? "" : "autofocus"} required>
                     </label>
                     <label>Password
-                        <input name="password" type="password" autocomplete="${registering ? "new-password" : "current-password"}" minlength="${registering ? "8" : "1"}" required>
+                        <div class="password-field">
+                            <input name="password" type="password" autocomplete="${registering ? "new-password" : "current-password"}" minlength="${registering ? "8" : "1"}" required>
+                            <button class="password-toggle" data-action="toggle-password" type="button" aria-label="Show password" aria-pressed="false">Show</button>
+                        </div>
                     </label>
                     <button class="button button-primary button-wide" type="submit">${registering ? "Create account" : "Sign in"}</button>
                 </form>
@@ -156,7 +159,8 @@ function renderAccountBar(view = activeView) {
     }
 
     const links = profile.role === "admin"
-        ? `<button class="nav-button ${view === "admin" ? "active" : ""}" data-view="admin" type="button">Orders dashboard</button>`
+        ? `<button class="nav-button ${view === "admin" ? "active" : ""}" data-view="admin" type="button">Orders dashboard</button>
+           <button class="nav-button ${view === "admin-menu" ? "active" : ""}" data-view="admin-menu" type="button">Manage menu</button>`
         : `<button class="nav-button ${view === "menu" ? "active" : ""}" data-view="menu" type="button">Menu</button>
            <button class="nav-button ${view === "cart" ? "active" : ""}" data-view="cart" type="button">Cart <span class="cart-count">${cartCount()}</span></button>
            <button class="nav-button ${view === "orders" ? "active" : ""}" data-view="orders" type="button">My orders</button>`;
@@ -328,11 +332,50 @@ async function loadAdminDashboard() {
 
     if (!adminRefreshTimer) {
         adminRefreshTimer = window.setInterval(() => {
-            if (profile?.role === "admin") {
+            if (profile?.role === "admin" && activeView === "admin") {
                 loadAdminDashboard().catch(handleError);
             }
         }, 20000);
     }
+}
+
+async function loadAdminMenu() {
+    if (profile?.role !== "admin") return;
+    activeView = "admin-menu";
+    setLoading("Loading menu management…");
+    const { data: menu, error } = await client
+        .from("foods")
+        .select("id,name,price,emoji,is_available")
+        .order("name");
+    if (error) throw error;
+
+    renderAccountBar();
+    root.innerHTML = `
+        <section class="page-heading">
+            <div><span class="eyebrow">CANTEEN CONTROL</span><h1>Manage menu</h1><p>Add a food item to the student menu.</p></div>
+        </section>
+        <section class="menu-admin-layout">
+            <form id="admin-food-form" class="menu-form">
+                <h2>Add a food item</h2>
+                <label>Food name
+                    <input name="name" maxlength="80" autocomplete="off" required>
+                </label>
+                <label>Price (INR)
+                    <input name="price" type="number" min="0" max="100000" step="1" inputmode="numeric" required>
+                </label>
+                <label>Food emoji
+                    <input name="emoji" type="text" value="🍽️" maxlength="8" autocomplete="off" required>
+                </label>
+                <button class="button button-primary" type="submit">Add to menu</button>
+            </form>
+            <section class="menu-admin-list" aria-label="Current menu items">
+                <div class="orders-heading"><div><h2>Current menu</h2><p>${menu.length} item${menu.length === 1 ? "" : "s"}</p></div></div>
+                ${menu.length ? `<ul class="menu-item-list">${menu.map((food) => `
+                    <li><span class="menu-item-emoji" aria-hidden="true">${escapeHtml(food.emoji)}</span>
+                        <span class="menu-item-name">${escapeHtml(food.name)}${food.is_available ? "" : " <span class=\"muted\">(unavailable)</span>"}</span>
+                        <strong>${money.format(food.price)}</strong></li>`).join("")}</ul>` : `<p class="muted">No menu items yet.</p>`}
+            </section>
+        </section>`;
 }
 
 async function onSession(session) {
@@ -430,6 +473,10 @@ async function submitAuth(form) {
         });
         return;
     }
+    if (error?.code === "invalid_credentials") {
+        showNotice("That email and password do not match. Check your details or reset your password.", "error");
+        return;
+    }
     if (error) throw error;
 }
 
@@ -506,6 +553,23 @@ async function updateOrderStatus(form) {
     await loadAdminDashboard();
 }
 
+async function addMenuItem(form) {
+    if (profile?.role !== "admin") return;
+    const values = new FormData(form);
+    const name = String(values.get("name")).trim();
+    const price = Number(values.get("price"));
+    const emoji = String(values.get("emoji")).trim();
+    if (!name || name.length > 80 || !Number.isInteger(price) || price < 0 || price > 100000 || !emoji) {
+        showNotice("Enter a food name, a whole-number price from 0 to 100,000, and an emoji.", "error");
+        return;
+    }
+
+    const { error } = await client.from("foods").insert({ name, price, emoji });
+    if (error) throw error;
+    showNotice(`${name} was added to the menu.`, "success");
+    await loadAdminMenu();
+}
+
 function handleError(error) {
     console.error(error);
     showNotice(error?.message || "Something went wrong. Please try again.", "error");
@@ -527,6 +591,8 @@ document.addEventListener("click", async (event) => {
             await loadCustomerOrders().catch(handleError);
         } else if (view === "admin" && profile?.role === "admin") {
             await loadAdminDashboard().catch(handleError);
+        } else if (view === "admin-menu" && profile?.role === "admin") {
+            await loadAdminMenu().catch(handleError);
         }
         return;
     }
@@ -535,7 +601,14 @@ document.addEventListener("click", async (event) => {
     if (!actionButton) return;
     const { action, id } = actionButton.dataset;
     try {
-        if (action === "add" || action === "increase") {
+        if (action === "toggle-password") {
+            const passwordInput = actionButton.parentElement.querySelector('input[name="password"]');
+            const showingPassword = passwordInput.type === "password";
+            passwordInput.type = showingPassword ? "text" : "password";
+            actionButton.textContent = showingPassword ? "Hide" : "Show";
+            actionButton.setAttribute("aria-label", `${showingPassword ? "Hide" : "Show"} password`);
+            actionButton.setAttribute("aria-pressed", String(showingPassword));
+        } else if (action === "add" || action === "increase") {
             const currentQuantity = cart[id] || 0;
             if (currentQuantity >= 50) {
                 showNotice("You can order up to 50 of each item.", "error");
@@ -586,17 +659,33 @@ root.addEventListener("submit", async (event) => {
     try {
         if (form.id === "auth-form" || form.id === "forgot-password-form" || form.id === "update-password-form") {
             const submitButton = form.querySelector('button[type="submit"]');
+            const originalText = submitButton.textContent;
             submitButton.disabled = true;
-            if (form.id === "auth-form") {
-                await submitAuth(form);
-            } else if (form.id === "forgot-password-form") {
-                await requestPasswordReset(form);
-            } else {
-                await updatePassword(form);
+            submitButton.textContent = form.id === "auth-form"
+                ? (form.dataset.mode === "register" ? "Creating account…" : "Signing in…")
+                : (form.id === "forgot-password-form" ? "Sending link…" : "Updating password…");
+            try {
+                if (form.id === "auth-form") {
+                    await submitAuth(form);
+                } else if (form.id === "forgot-password-form") {
+                    await requestPasswordReset(form);
+                } else {
+                    await updatePassword(form);
+                }
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = originalText;
             }
-            submitButton.disabled = false;
         } else if (form.matches(".status-form")) {
             await updateOrderStatus(form);
+        } else if (form.id === "admin-food-form") {
+            const submitButton = form.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            try {
+                await addMenuItem(form);
+            } finally {
+                submitButton.disabled = false;
+            }
         }
     } catch (error) {
         const submitButton = form.querySelector('button[type="submit"]');

@@ -221,6 +221,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     background: #fff;
     color: #26372e;
 }
+.password-field { position: relative; }
+.password-field input { padding-right: 68px; }
+.password-toggle { position: absolute; top: 50%; right: 10px; padding: 5px; transform: translateY(-50%); border: 0; background: transparent; color: var(--green); font-size: .82rem; font-weight: 750; }
+.password-toggle:hover { color: var(--green-dark); text-decoration: underline; }
 .form-stack input:focus, .status-form select:focus { border-color: var(--green); outline: 3px solid rgba(23, 107, 77, .12); }
 .auth-confirmation { margin: 0 0 18px; padding: 14px; border: 1px solid #d5e8d8; border-radius: 12px; background: #f0f7f1; }
 .auth-confirmation p { margin: 0 0 12px; color: #345344; font-size: .88rem; line-height: 1.55; }
@@ -314,6 +318,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .orders-heading h2 { margin: 0 0 3px; font-size: 1.3rem; }
 .orders-heading p { margin: 0; color: var(--muted); font-size: .9rem; }
 
+.menu-admin-layout { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); align-items: start; gap: 28px; }
+.menu-form { padding: 21px; display: grid; gap: 15px; border: 1px solid var(--border); border-radius: 15px; background: #fff; }
+.menu-form h2 { margin: 0 0 2px; font-size: 1.12rem; }
+.menu-form label { display: grid; gap: 7px; color: #3e4e45; font-size: .86rem; font-weight: 700; }
+.menu-form input { width: 100%; min-height: 43px; padding: 10px 12px; border: 1px solid #d6dfd7; border-radius: 9px; background: #fff; color: #26372e; }
+.menu-form input:focus { border-color: var(--green); outline: 3px solid rgba(23, 107, 77, .12); }
+.menu-item-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--border); }
+.menu-item-list li { min-height: 54px; padding: 9px 2px; display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); }
+.menu-item-emoji { font-size: 1.3rem; text-align: center; }
+.menu-item-name { min-width: 0; overflow-wrap: anywhere; font-size: .92rem; }
+.menu-item-list strong { color: var(--green-dark); font-size: .9rem; white-space: nowrap; }
+
 .order-card { padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: #fff; }
 .order-topline { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .order-topline .eyebrow { margin-bottom: 4px; font-size: .65rem; }
@@ -377,6 +393,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     .auth-intro > p { margin-bottom: 10px; font-size: .98rem; }
     .intro-note { margin-top: 14px; font-size: .88rem; }
     .auth-card { padding: 23px; }
+    .menu-admin-layout { grid-template-columns: 1fr; gap: 25px; }
     .page-heading { align-items: flex-start; flex-direction: column; }
     .food-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
     .food-art { min-height: 100px; font-size: 3rem; }

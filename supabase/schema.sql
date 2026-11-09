@@ -17,6 +17,10 @@ create table if not exists public.foods (
     is_available boolean not null default true
 );
 
+create sequence if not exists public.foods_id_seq;
+alter sequence public.foods_id_seq owned by public.foods.id;
+alter table public.foods alter column id set default nextval('public.foods_id_seq');
+
 create table if not exists public.orders (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null references public.profiles (id),
@@ -56,6 +60,9 @@ on conflict (id) do update
 set name = excluded.name,
     price = excluded.price,
     emoji = excluded.emoji;
+
+select setval('public.foods_id_seq', coalesce(max(id), 0) + 1, false)
+from public.foods;
 
 create or replace function public.is_canteen_admin()
 returns boolean
@@ -185,6 +192,16 @@ create policy "Available menu is public"
     on public.foods for select to anon, authenticated
     using (is_available);
 
+drop policy if exists "Admins can view all menu items" on public.foods;
+create policy "Admins can view all menu items"
+    on public.foods for select to authenticated
+    using ((select public.is_canteen_admin()));
+
+drop policy if exists "Admins can add menu items" on public.foods;
+create policy "Admins can add menu items"
+    on public.foods for insert to authenticated
+    with check ((select public.is_canteen_admin()));
+
 drop policy if exists "Customers and admins can view orders" on public.orders;
 create policy "Customers and admins can view orders"
     on public.orders for select to authenticated
@@ -212,6 +229,9 @@ create policy "Customers and admins can view order items"
 revoke all on public.profiles, public.foods, public.orders, public.order_items
     from anon, authenticated;
 grant select on public.foods to anon, authenticated;
+grant insert (name, price, emoji) on public.foods to authenticated;
+revoke all on sequence public.foods_id_seq from public, anon, authenticated;
+grant usage on sequence public.foods_id_seq to authenticated;
 grant select on public.profiles to authenticated;
 grant select on public.orders to authenticated;
 grant update (status) on public.orders to authenticated;

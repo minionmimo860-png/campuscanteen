@@ -9,6 +9,12 @@ A static campus canteen ordering website hosted on GitHub Pages, with Supabase p
 3. In Supabase **Authentication → Providers → Email**, enable email/password sign-in and keep email confirmation enabled. After creating an account, users must open the confirmation link sent to their email before signing in. The website can resend the link if needed. Users can request a password reset from the sign-in screen; configure Supabase email templates and SMTP delivery for production.
 4. In `site/static/config.js`, set the Supabase project URL and **publishable/anon key** from **Project Settings → API**. This key is intended for browser use; never put a `service_role` or secret key in this file.
 
+## Password reset email
+
+In Supabase **Authentication → Email Templates → Reset Password**, set the subject to `Reset your Campus Canteen password` and paste the contents of [`supabase/email-templates/password-reset.html`](./supabase/email-templates/password-reset.html) into the message editor. The template uses Supabase's `{{ .ConfirmationURL }}` variable so the link continues to use the redirect URL requested by the website.
+
+For delivery to real users, configure a custom SMTP provider in Supabase **Authentication → SMTP Settings**. Also make sure the deployed site URL is set in **Authentication → URL Configuration** and that the site's URL is in the allowed redirect URLs. Supabase's default email sender may be restricted and is intended for testing.
+
 ## Publish on GitHub Pages
 
 1. Push this repository to GitHub.
@@ -50,6 +56,7 @@ site/                   Static website published by GitHub Pages
   static/config.js      Supabase project URL and public browser key
   static/style.css      Responsive styles
 supabase/schema.sql     Database schema, menu seed, and access policies
+supabase/email-templates/  Supabase Auth email templates
 .github/workflows/      GitHub Pages deployment
 ```
 

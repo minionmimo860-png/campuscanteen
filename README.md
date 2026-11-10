@@ -1,6 +1,6 @@
 # Campus Canteen
 
-A static campus canteen ordering website hosted on GitHub Pages, with Supabase providing authentication, menu data, order storage, and staff permissions. Students can browse the menu, submit pickup orders, and track their status. Chefs get a kitchen queue of orders to prepare, can update preparation status, and can add or edit menu items. Canteen admins can view incoming orders, manage staff access, and track on-hand inventory. Inventory counts are maintained by the canteen and are not automatically reduced when orders are placed.
+A static campus canteen ordering website hosted on GitHub Pages, with Supabase providing authentication, menu data, order storage, and staff permissions. Students can browse the menu, submit pickup orders, and track their status. Chefs get a kitchen queue of orders to prepare, can update preparation status, and can add menu items. Administrators use the protected `site/chef.html` console to manage orders, food, categories, customers, payments, inventory, reviews, reports, staff access, and account settings. Inventory counts are maintained by the canteen and are not automatically reduced when orders are placed.
 
 ## Set up Supabase
 
@@ -8,6 +8,17 @@ A static campus canteen ordering website hosted on GitHub Pages, with Supabase p
 2. In the Supabase SQL Editor, run [`supabase/schema.sql`](./supabase/schema.sql). This creates the menu and order tables, enables row-level security, and seeds the menu. The schema also provides `categories`, `cart`, `cart_items`, `payments`, and `reviews`; `users` and `food_items` are compatibility views over the existing `profiles` and `foods` tables. Supabase Auth remains the source of credentials. If the project is already set up, run the updated SQL again to apply the additions. Existing menu items will be marked as not counted until the canteen enters their stock quantities.
 3. In Supabase **Authentication → Providers → Email**, enable email/password sign-in and keep email confirmation enabled. After creating an account, users must open the confirmation link sent to their email before signing in. The website can resend the link if needed. Users can request a password reset from the sign-in screen; configure Supabase email templates and SMTP delivery for production.
 4. In `site/static/config.js`, set the Supabase project URL and **publishable/anon key** from **Project Settings → API**. This key is intended for browser use; never put a `service_role` or secret key in this file.
+
+The schema creates the public `canteen-food-images` Storage bucket for admin food-image uploads (JPG, PNG, WebP, or AVIF; maximum 5 MB) and the admin-only database functions used for safe order transitions, deletion, and review moderation. Re-run the updated [`supabase/schema.sql`](./supabase/schema.sql) in the Supabase SQL Editor when deploying these changes.
+
+## Admin and chef access
+
+- Promote an existing, confirmed account to `admin` using the SQL in **Publish on GitHub Pages**. Open `site/chef.html` and sign in with that admin account to use the administration console. The page checks the profile role after authentication; there is no public admin registration.
+- Chefs continue to sign in from the customer sign-in page using **Chef sign in**. Their existing kitchen queue and menu access remain role-restricted.
+- The admin console summarizes paid revenue only for delivered/completed orders. Payment records are read-only; online payments must be confirmed by a verified payment provider, not by an admin UI action.
+- Food image uploads are validated in the browser and restricted by Supabase Storage to admin accounts, allowed image MIME types, and 5 MB. Supabase Storage must be available in the project.
+- Customer contact details and order history are visible only to signed-in admins under the existing row-level security policies. Passwords are never exposed. Suspending Supabase Auth accounts requires a trusted server-side Auth Admin API integration and is not exposed through this static app.
+- The static app does not use Flask, SQLAlchemy, or Flask-Login. Do not put service-role credentials in browser code. Account deletion/suspension and other privileged Auth Admin actions require a separately hosted trusted backend.
 
 ## Password reset email
 
@@ -66,8 +77,8 @@ Then open `http://127.0.0.1:8000`. The local HTTP server only serves the website
 ```text
 site/                   Static website published by GitHub Pages
   index.html            App shell
-  chef.html             Chef sign-in and kitchen order queue
-  static/app.js         Customer and admin interface
+  chef.html             Admin console sign-in and dashboard
+  static/app.js         Customer, chef, and admin interfaces
   static/config.js      Supabase project URL and public browser key
   static/style.css      Responsive styles
 supabase/schema.sql     Database schema, menu seed, and access policies

@@ -11,6 +11,18 @@ create table if not exists public.profiles (
     created_at timestamptz not null default now()
 );
 
+create table if not exists public.restaurant_settings (
+    id integer primary key default 1 check (id = 1),
+    name text not null default 'Campus Canteen',
+    contact_phone text,
+    address text,
+    opening_hours text,
+    updated_at timestamptz not null default now()
+);
+
+insert into public.restaurant_settings (id) values (1)
+on conflict (id) do nothing;
+
 alter table public.profiles add column if not exists phone text;
 alter table public.profiles add column if not exists delivery_address text;
 
@@ -82,6 +94,7 @@ create table if not exists public.orders (
     delivery_address text,
     payment_method text,
     payment_status text default 'Pending' check (payment_status in ('Pending', 'Paid', 'Failed', 'Refunded')),
+    cancellation_reason text,
     created_at timestamptz not null default now()
 );
 
@@ -89,6 +102,7 @@ alter table public.orders add column if not exists phone text;
 alter table public.orders add column if not exists delivery_address text;
 alter table public.orders add column if not exists payment_method text;
 alter table public.orders add column if not exists payment_status text default 'Pending';
+alter table public.orders add column if not exists cancellation_reason text;
 alter table public.orders drop constraint if exists orders_status_check;
 alter table public.orders
     add constraint orders_status_check check (status in (
@@ -142,9 +156,18 @@ create table if not exists public.reviews (
     food_id integer not null references public.foods (id) on delete cascade,
     rating integer not null check (rating between 1 and 5),
     comment text check (char_length(comment) <= 1000),
+    is_hidden boolean not null default false,
+    moderation_reason text,
+    moderated_at timestamptz,
+    moderated_by uuid references public.profiles (id) on delete set null,
     created_at timestamptz not null default now(),
     unique (user_id, order_id, food_id)
 );
+
+alter table public.reviews add column if not exists is_hidden boolean not null default false;
+alter table public.reviews add column if not exists moderation_reason text;
+alter table public.reviews add column if not exists moderated_at timestamptz;
+alter table public.reviews add column if not exists moderated_by uuid references public.profiles (id) on delete set null;
 
 create index if not exists orders_user_created_idx on public.orders (user_id, created_at desc);
 create index if not exists order_items_food_idx on public.order_items (food_id);
@@ -248,11 +271,205 @@ begin
     end if;
 
     update public.foods
-    set stock_quantity = p_stock_quantity
+    set stock_quantity = p_stock_quantity,
+        is_available = case when p_stock_quantity = 0 then false else is_available end
     where id = p_food_id;
 
     if not found then
         raise exception 'Menu item not found.';
+    end if;
+end;
+$$;
+
+create or replace function public.set_canteen_order_status(
+    p_order_id uuid,
+    p_status text,
+    p_cancellation_reason text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    current_status text;
+    clean_reason text := nullif(trim(p_cancellation_reason), '');
+    is_admin boolean := public.is_canteen_admin();
+    is_chef boolean := public.is_canteen_chef();
+begin
+    if not is_admin and not is_chef then
+        raise exception 'Only canteen staff can update order status.';
+    end if;
+
+    select status into current_status
+    from public.orders
+    where id = p_order_id
+    for update;
+    if not found then
+        raise exception 'Order not found.';
+    end if;
+
+    if is_admin and not (
+        (current_status = 'Pending' and p_status in ('Accepted', 'Cancelled'))
+        or (current_status = 'Accepted' and p_status in ('Preparing', 'Cancelled'))
+        or (current_status = 'Preparing' and p_status = 'Ready for Pickup')
+        or (current_status in ('Ready', 'Ready for Pickup') and p_status in ('Out for Delivery', 'Delivered'))
+        or (current_status = 'Out for Delivery' and p_status = 'Delivered')
+    ) then
+        raise exception 'The requested order status transition is not allowed.';
+    end if;
+    if is_chef and not (
+        (current_status = 'Pending' and p_status = 'Accepted')
+        or (current_status = 'Accepted' and p_status = 'Preparing')
+        or (current_status = 'Preparing' and p_status = 'Ready for Pickup')
+    ) then
+        raise exception 'The requested order status transition is not allowed.';
+    end if;
+
+    if is_admin and p_status = 'Cancelled' and (clean_reason is null or char_length(clean_reason) < 5 or char_length(clean_reason) > 300) then
+        raise exception 'A cancellation reason of 5 to 300 characters is required.';
+    end if;
+
+    update public.orders
+    set status = p_status,
+        cancellation_reason = case when p_status = 'Cancelled' then clean_reason else null end
+    where id = p_order_id;
+end;
+$$;
+
+create or replace function public.cancel_canteen_customer_order(p_order_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    order_owner uuid;
+    current_status text;
+begin
+    if auth.uid() is null then
+        raise exception 'Sign in before cancelling an order.';
+    end if;
+    select user_id, status into order_owner, current_status
+    from public.orders
+    where id = p_order_id
+    for update;
+    if not found or order_owner <> (select auth.uid()) then
+        raise exception 'Order not found.';
+    end if;
+    if current_status not in ('Pending', 'Accepted') then
+        raise exception 'Only pending or accepted orders can be cancelled.';
+    end if;
+    update public.orders
+    set status = 'Cancelled',
+        cancellation_reason = 'Cancelled by customer'
+    where id = p_order_id;
+end;
+$$;
+
+create or replace function public.delete_canteen_food(p_food_id integer)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    if not (select public.is_canteen_admin()) then
+        raise exception 'Only a canteen admin can delete food items.';
+    end if;
+    if not exists (select 1 from public.foods where id = p_food_id) then
+        raise exception 'Menu item not found.';
+    end if;
+    if exists (select 1 from public.order_items where food_id = p_food_id)
+       or exists (select 1 from public.reviews where food_id = p_food_id) then
+        raise exception 'Food items with order or review history cannot be deleted.';
+    end if;
+    delete from public.foods where id = p_food_id;
+end;
+$$;
+
+create or replace function public.delete_canteen_category(p_category_id integer)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    if not (select public.is_canteen_admin()) then
+        raise exception 'Only a canteen admin can delete categories.';
+    end if;
+    if not exists (select 1 from public.categories where id = p_category_id) then
+        raise exception 'Category not found.';
+    end if;
+    if exists (
+        select 1 from public.foods
+        where category_id = p_category_id
+           or category = (select name from public.categories where id = p_category_id)
+    ) then
+        raise exception 'Reassign food items before deleting this category.';
+    end if;
+    delete from public.categories where id = p_category_id;
+end;
+$$;
+
+create or replace function public.rename_canteen_category(p_category_id integer, p_name text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    clean_name text := nullif(trim(p_name), '');
+    old_name text;
+begin
+    if not (select public.is_canteen_admin()) then
+        raise exception 'Only a canteen admin can rename categories.';
+    end if;
+    if clean_name is null or char_length(clean_name) > 60 then
+        raise exception 'Category names must contain 1 to 60 characters.';
+    end if;
+    select name into old_name from public.categories where id = p_category_id for update;
+    if not found then
+        raise exception 'Category not found.';
+    end if;
+    if exists (select 1 from public.categories where name = clean_name and id <> p_category_id) then
+        raise exception 'A category with that name already exists.';
+    end if;
+    update public.categories set name = clean_name where id = p_category_id;
+    update public.foods set category = clean_name where category_id = p_category_id or category = old_name;
+end;
+$$;
+
+create or replace function public.moderate_canteen_review(
+    p_review_id uuid,
+    p_hidden boolean,
+    p_reason text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    clean_reason text := nullif(trim(p_reason), '');
+begin
+    if not (select public.is_canteen_admin()) then
+        raise exception 'Only a canteen admin can moderate reviews.';
+    end if;
+    if p_hidden is null then
+        raise exception 'Review visibility must be specified.';
+    end if;
+    if p_hidden and (clean_reason is null or char_length(clean_reason) < 5 or char_length(clean_reason) > 300) then
+        raise exception 'A moderation reason of 5 to 300 characters is required.';
+    end if;
+    update public.reviews
+    set is_hidden = p_hidden,
+        moderation_reason = case when p_hidden then clean_reason else null end,
+        moderated_at = now(),
+        moderated_by = (select auth.uid())
+    where id = p_review_id;
+    if not found then
+        raise exception 'Review not found.';
     end if;
 end;
 $$;
@@ -286,6 +503,27 @@ begin
     return new;
 end;
 $$;
+
+create or replace function public.sync_canteen_profile_email()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    update public.profiles
+    set email = new.email
+    where id = new.id;
+    return new;
+end;
+$$;
+
+drop trigger if exists on_canteen_auth_email_updated on auth.users;
+create trigger on_canteen_auth_email_updated
+    after update of email on auth.users
+    for each row
+    when (old.email is distinct from new.email)
+    execute function public.sync_canteen_profile_email();
 
 drop trigger if exists on_canteen_auth_user_created on auth.users;
 create trigger on_canteen_auth_user_created
@@ -395,6 +633,7 @@ alter table public.cart enable row level security;
 alter table public.cart_items enable row level security;
 alter table public.payments enable row level security;
 alter table public.reviews enable row level security;
+alter table public.restaurant_settings enable row level security;
 
 create or replace view public.users
 with (security_invoker = true)
@@ -426,10 +665,17 @@ create policy "Categories are visible to everyone"
     using (true);
 
 drop policy if exists "Canteen staff can manage categories" on public.categories;
-create policy "Canteen staff can manage categories"
+drop policy if exists "Admins manage categories" on public.categories;
+create policy "Admins manage categories"
     on public.categories for all to authenticated
-    using ((select public.is_canteen_admin()) or (select public.is_canteen_chef()))
-    with check ((select public.is_canteen_admin()) or (select public.is_canteen_chef()));
+    using ((select public.is_canteen_admin()))
+    with check ((select public.is_canteen_admin()));
+
+drop policy if exists "Admins manage restaurant settings" on public.restaurant_settings;
+create policy "Admins manage restaurant settings"
+    on public.restaurant_settings for all to authenticated
+    using ((select public.is_canteen_admin()))
+    with check ((select public.is_canteen_admin()));
 
 drop policy if exists "Customers manage their cart" on public.cart;
 create policy "Customers manage their cart"
@@ -457,9 +703,10 @@ create policy "Customers and admins view payments"
     using (user_id = (select auth.uid()) or (select public.is_canteen_admin()));
 
 drop policy if exists "Customers view reviews" on public.reviews;
-create policy "Customers view reviews"
+drop policy if exists "Visible reviews and admin moderation" on public.reviews;
+create policy "Visible reviews and admin moderation"
     on public.reviews for select to authenticated
-    using (true);
+    using (not is_hidden or (select public.is_canteen_admin()));
 
 drop policy if exists "Customers review delivered order items" on public.reviews;
 create policy "Customers review delivered order items"
@@ -559,6 +806,7 @@ revoke all on public.profiles, public.foods, public.orders, public.order_items
     from anon, authenticated;
 revoke all on public.categories, public.cart, public.cart_items, public.payments, public.reviews
     from anon, authenticated;
+revoke all on public.restaurant_settings from anon, authenticated;
 grant select on public.foods to anon, authenticated;
 grant insert (name, price, emoji, stock_quantity, image_url, description, category, featured, popular) on public.foods to authenticated;
 grant update (name, price, emoji, image_url, description, category, featured, popular, is_available) on public.foods to authenticated;
@@ -567,11 +815,11 @@ grant usage on sequence public.foods_id_seq to authenticated;
 grant select on public.profiles to authenticated;
 grant update (name, phone, delivery_address) on public.profiles to authenticated;
 grant select on public.orders to authenticated;
-grant update (status) on public.orders to authenticated;
 grant select on public.order_items to authenticated;
 grant select on public.categories to anon, authenticated;
 grant insert, update, delete on public.categories to authenticated;
 grant usage, select on sequence public.categories_id_seq to authenticated;
+grant select, insert, update on public.restaurant_settings to authenticated;
 grant select, insert, update, delete on public.cart, public.cart_items to authenticated;
 grant select on public.payments, public.reviews to authenticated;
 grant insert on public.reviews to authenticated;
@@ -586,7 +834,54 @@ revoke all on function public.set_canteen_staff_role(uuid, text) from public, an
 grant execute on function public.set_canteen_staff_role(uuid, text) to authenticated;
 revoke all on function public.set_canteen_stock(integer, integer) from public, anon;
 grant execute on function public.set_canteen_stock(integer, integer) to authenticated;
+revoke all on function public.set_canteen_order_status(uuid, text, text) from public, anon;
+grant execute on function public.set_canteen_order_status(uuid, text, text) to authenticated;
+revoke all on function public.cancel_canteen_customer_order(uuid) from public, anon;
+grant execute on function public.cancel_canteen_customer_order(uuid) to authenticated;
+revoke all on function public.delete_canteen_food(integer) from public, anon;
+grant execute on function public.delete_canteen_food(integer) to authenticated;
+revoke all on function public.delete_canteen_category(integer) from public, anon;
+grant execute on function public.delete_canteen_category(integer) to authenticated;
+revoke all on function public.rename_canteen_category(integer, text) from public, anon;
+grant execute on function public.rename_canteen_category(integer, text) to authenticated;
+revoke all on function public.moderate_canteen_review(uuid, boolean, text) from public, anon;
+grant execute on function public.moderate_canteen_review(uuid, boolean, text) to authenticated;
 revoke all on function public.place_order(jsonb, text, text, text) from public, anon;
 grant execute on function public.place_order(jsonb, text, text, text) to authenticated;
 
 revoke all on function public.create_canteen_profile() from public, anon, authenticated;
+revoke all on function public.sync_canteen_profile_email() from public, anon, authenticated;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+    'canteen-food-images',
+    'canteen-food-images',
+    true,
+    5242880,
+    array['image/jpeg', 'image/png', 'image/webp', 'image/avif']
+)
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Public can view canteen food images" on storage.objects;
+create policy "Public can view canteen food images"
+    on storage.objects for select to public
+    using (bucket_id = 'canteen-food-images');
+
+drop policy if exists "Admins upload canteen food images" on storage.objects;
+create policy "Admins upload canteen food images"
+    on storage.objects for insert to authenticated
+    with check (bucket_id = 'canteen-food-images' and (select public.is_canteen_admin()));
+
+drop policy if exists "Admins update canteen food images" on storage.objects;
+create policy "Admins update canteen food images"
+    on storage.objects for update to authenticated
+    using (bucket_id = 'canteen-food-images' and (select public.is_canteen_admin()))
+    with check (bucket_id = 'canteen-food-images' and (select public.is_canteen_admin()));
+
+drop policy if exists "Admins delete canteen food images" on storage.objects;
+create policy "Admins delete canteen food images"
+    on storage.objects for delete to authenticated
+    using (bucket_id = 'canteen-food-images' and (select public.is_canteen_admin()));

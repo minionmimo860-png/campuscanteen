@@ -247,6 +247,104 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .page-heading p { margin: 0; color: var(--muted); }
 .page-heading > .button { flex-shrink: 0; }
 
+.customer-welcome {
+    position: relative;
+    min-height: 214px;
+    margin-bottom: 20px;
+    padding: clamp(26px, 5vw, 44px);
+    overflow: hidden;
+    align-items: center;
+    border: 1px solid #dce8de;
+    border-radius: 23px;
+    background: radial-gradient(circle at 88% 20%, rgba(255,255,255,.32), transparent 25%), linear-gradient(115deg, #edf5ed, #f8f7ed);
+}
+.customer-welcome::after {
+    position: absolute;
+    right: 12%;
+    bottom: -96px;
+    width: 220px;
+    height: 220px;
+    border: 1px solid rgba(23, 107, 77, .08);
+    border-radius: 50%;
+    box-shadow: 0 0 0 24px rgba(23, 107, 77, .025), 0 0 0 50px rgba(23, 107, 77, .02);
+    content: "";
+    pointer-events: none;
+}
+.customer-welcome > div, .welcome-cart { position: relative; z-index: 1; }
+.customer-welcome h1 { margin-bottom: 9px; font-size: clamp(2rem, 4.5vw, 3rem); }
+.customer-welcome p { max-width: 430px; line-height: 1.6; }
+.customer-welcome .eyebrow { margin-bottom: 12px; }
+.welcome-cart { padding: 11px 17px; box-shadow: 0 7px 16px rgba(16, 81, 58, .14); }
+.welcome-cart .cart-count { background: rgba(255,255,255,.2); color: #fff; }
+
+.dashboard-overview {
+    margin-bottom: 34px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 13px;
+}
+.dashboard-card {
+    min-width: 0;
+    min-height: 94px;
+    padding: 17px;
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    border: 1px solid var(--border);
+    border-radius: 15px;
+    background: #fff;
+    box-shadow: 0 4px 14px rgba(31, 54, 42, .035);
+}
+.dashboard-icon {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    border-radius: 13px;
+    background: var(--green-pale);
+    color: var(--green);
+    font-size: 1.25rem;
+    font-weight: 750;
+}
+.dashboard-card div { min-width: 0; display: grid; gap: 3px; }
+.dashboard-card strong { color: #263a30; font-size: 1.2rem; letter-spacing: -.025em; }
+.dashboard-card div span { color: var(--muted); font-size: .79rem; line-height: 1.35; }
+
+.menu-tools {
+    margin-bottom: 13px;
+    padding: 13px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--border);
+    border-radius: 15px;
+    background: #fff;
+}
+.menu-search { position: relative; display: block; }
+.menu-search input, .sort-control select {
+    min-height: 43px;
+    border: 1px solid #dfe6df;
+    border-radius: 10px;
+    background: #fbfcfa;
+    color: #26372e;
+}
+.menu-search input { width: 100%; padding: 9px 13px 9px 40px; }
+.menu-search input::placeholder { color: #87938b; }
+.menu-search input:focus, .sort-control select:focus { border-color: var(--green); outline: 3px solid rgba(23, 107, 77, .12); }
+.search-icon { position: absolute; top: 50%; left: 13px; color: #718078; font-size: 1.35rem; line-height: 1; transform: translateY(-53%); pointer-events: none; }
+.sort-control { display: flex; align-items: center; gap: 9px; }
+.sort-control > span { color: var(--muted); font-size: .8rem; font-weight: 650; }
+.sort-control select { min-width: 155px; padding: 8px 29px 8px 10px; }
+.category-pills { margin-bottom: 28px; display: flex; flex-wrap: wrap; gap: 7px; }
+.category-pills .filter-button { min-height: 36px; padding: 7px 13px; border-color: #e1e8e1; background: #fff; }
+.category-pills .filter-button:hover, .category-pills .filter-button.active { border-color: #c8ddce; background: var(--green-pale); }
+.menu-section-heading { margin-bottom: 15px; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.menu-section-heading .eyebrow { margin-bottom: 4px; font-size: .65rem; }
+.menu-section-heading h2 { margin: 0; color: #263a30; font-size: 1.4rem; letter-spacing: -.04em; }
+.menu-result-count { padding: 6px 10px; border-radius: 999px; background: #edf2ed; color: #52635a; font-size: .78rem; font-weight: 700; white-space: nowrap; }
+
 .food-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr));
@@ -262,15 +360,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .food-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
 .food-art {
-    min-height: 137px;
+    height: 164px;
+    overflow: hidden;
     display: grid;
     place-items: center;
     background: linear-gradient(140deg, #f8efdf, #edf4e9);
     font-size: 3.8rem;
 }
+.food-art img { width: 100%; height: 100%; object-fit: cover; transition: transform .3s ease; }
+.food-card:hover .food-art img { transform: scale(1.04); }
 .food-info { padding: 17px; }
 .food-info h2 { margin: 0; font-size: 1.04rem; letter-spacing: -.02em; }
-.food-subtitle { margin: 5px 0 16px; color: var(--muted); font-size: .8rem; }
+.food-subtitle, .food-description { min-height: 40px; margin: 6px 0 16px; color: var(--muted); font-size: .83rem; line-height: 1.5; }
+.food-meta-row { margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.food-category, .availability-pill { color: var(--green); font-size: .7rem; font-weight: 750; }
+.food-category { padding: 4px 8px; border-radius: 999px; background: #eff5ef; }
+.availability-pill.unavailable { color: #8c3b35; }
+.food-card.unavailable { opacity: .78; }
 .food-buy { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .food-buy strong { color: var(--green-dark); font-size: 1.08rem; }
 
@@ -424,6 +530,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     .item-total { text-align: left; }
     .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .admin-order-tools { grid-template-columns: 1fr; }
+    .dashboard-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 640px) {
@@ -440,11 +547,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     .auth-card { padding: 23px; }
     .menu-admin-layout { grid-template-columns: 1fr; gap: 25px; }
     .page-heading { align-items: flex-start; flex-direction: column; }
+    .customer-welcome { min-height: 0; padding: 26px 22px; gap: 20px; }
+    .customer-welcome::after { right: -80px; bottom: -130px; }
+    .welcome-cart { width: 100%; }
+    .dashboard-overview { gap: 9px; margin-bottom: 27px; }
+    .dashboard-card { min-height: 82px; padding: 12px; gap: 9px; }
+    .dashboard-icon { width: 35px; height: 35px; border-radius: 11px; font-size: 1.05rem; }
+    .dashboard-card strong { font-size: 1.08rem; }
+    .dashboard-card div span { font-size: .73rem; }
+    .menu-tools { grid-template-columns: 1fr; padding: 10px; }
+    .sort-control { justify-content: space-between; }
+    .sort-control select { flex: 1; }
+    .category-pills { margin-bottom: 22px; }
     .food-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
-    .food-art { min-height: 100px; font-size: 3rem; }
+    .food-art { height: 120px; min-height: 100px; font-size: 3rem; }
     .food-info { padding: 12px; }
     .food-info h2 { font-size: .9rem; }
-    .food-subtitle { min-height: 30px; margin: 4px 0 10px; font-size: .72rem; }
+    .food-subtitle, .food-description { min-height: 42px; margin: 4px 0 10px; font-size: .72rem; }
     .food-buy { align-items: flex-start; flex-direction: column; }
     .food-buy strong { font-size: 1rem; }
     .food-buy .button { width: 100%; }
@@ -474,8 +593,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 380px) {
     .food-grid { grid-template-columns: 1fr; }
     .food-card { display: grid; grid-template-columns: 92px 1fr; align-items: stretch; }
-    .food-art { min-height: 100%; font-size: 2.5rem; }
-    .food-subtitle { min-height: 0; }
+    .food-art { height: auto; min-height: 100%; font-size: 2.5rem; }
+    .food-subtitle, .food-description { min-height: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

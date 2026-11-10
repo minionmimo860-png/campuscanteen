@@ -292,33 +292,34 @@ function renderMenu() {
         });
 
     root.innerHTML = `
-        <section class="page-heading">
+        <section class="page-heading customer-welcome">
             <div>
                 <span class="eyebrow">MADE FRESH ON CAMPUS</span>
                 <h1>Welcome back, ${escapeHtml(profile?.name?.split(" ")[0] || "Customer")}!</h1>
                 <p>Choose your favourites and place a pickup order.</p>
             </div>
-            <button class="button button-primary" data-view="cart" type="button">View cart <span class="cart-count">${cartCount()}</span></button>
+            <button class="button button-primary welcome-cart" data-view="cart" type="button">View cart <span class="cart-count">${cartCount()}</span></button>
         </section>
         <section class="dashboard-overview" aria-label="Customer dashboard overview">
-            <article class="dashboard-card"><span>Featured</span><strong>${foods.filter((food) => food.featured).length}</strong></article>
-            <article class="dashboard-card"><span>Popular</span><strong>${foods.filter((food) => food.popular).length}</strong></article>
-            <article class="dashboard-card"><span>Categories</span><strong>${categoryList.length}</strong></article>
-            <article class="dashboard-card"><span>Recent orders</span><strong>${profile ? "Ready" : "-"}</strong></article>
+            <article class="dashboard-card"><span class="dashboard-icon" aria-hidden="true">✦</span><div><strong>${foods.filter((food) => food.featured).length}</strong><span>Featured dishes</span></div></article>
+            <article class="dashboard-card"><span class="dashboard-icon" aria-hidden="true">♨</span><div><strong>${foods.filter((food) => food.popular).length}</strong><span>Popular picks</span></div></article>
+            <article class="dashboard-card"><span class="dashboard-icon" aria-hidden="true">⌘</span><div><strong>${categoryList.length}</strong><span>Menu categories</span></div></article>
+            <article class="dashboard-card"><span class="dashboard-icon" aria-hidden="true">↗</span><div><strong>Pickup</strong><span>Order when you’re ready</span></div></article>
         </section>
         <section class="menu-tools" aria-label="Food filters">
-            <label class="menu-search"><span class="sr-only">Search food</span><input id="food-search" type="search" placeholder="Search food by name" value="${escapeHtml(menuSearch)}"></label>
-            <select id="food-sort" aria-label="Sort food by">
+            <label class="menu-search"><span class="search-icon" aria-hidden="true">⌕</span><span class="sr-only">Search food</span><input id="food-search" type="search" placeholder="Search dishes by name" value="${escapeHtml(menuSearch)}"></label>
+            <label class="sort-control"><span>Sort by</span><select id="food-sort" aria-label="Sort food by">
                 <option value="featured" ${menuSort === "featured" ? "selected" : ""}>Featured</option>
                 <option value="price-low" ${menuSort === "price-low" ? "selected" : ""}>Price: Low to high</option>
                 <option value="price-high" ${menuSort === "price-high" ? "selected" : ""}>Price: High to low</option>
                 <option value="name" ${menuSort === "name" ? "selected" : ""}>Name</option>
-            </select>
+            </select></label>
         </section>
         <div class="category-pills" aria-label="Food categories">
             <button class="filter-button ${activeCategory === "all" ? "active" : ""}" data-category="all" type="button">All</button>
             ${categoryList.map((category) => `<button class="filter-button ${activeCategory === category ? "active" : ""}" data-category="${escapeHtml(category)}" type="button">${escapeHtml(category)}</button>`).join("")}
         </div>
+        <div class="menu-section-heading"><div><span class="eyebrow">MADE FOR YOUR BREAK</span><h2>Explore the menu</h2></div><span class="menu-result-count">${visibleFoods.length} ${visibleFoods.length === 1 ? "dish" : "dishes"}</span></div>
         <section class="food-grid" aria-label="Canteen menu">
             ${visibleFoods.length ? visibleFoods.map((food) => `
                 <article class="food-card ${food.is_available ? "" : "unavailable"}">

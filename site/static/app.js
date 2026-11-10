@@ -38,6 +38,8 @@ let adminReportStart = "";
 let adminReportEnd = "";
 let adminDashboardCharts = [];
 let adminSearchTimer;
+let adminOrderNotificationsInitialized = false;
+const adminSeenOrderIds = new Set();
 
 function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -355,6 +357,39 @@ function cartCount() {
     return Object.values(cart).reduce((sum, quantity) => sum + normalizeCartQuantity(quantity), 0);
 }
 
+function notifyAdminOfNewOrders(orders) {
+    if (!adminOrderNotificationsInitialized) {
+        orders.forEach((order) => adminSeenOrderIds.add(order.id));
+        adminOrderNotificationsInitialized = true;
+        return;
+    }
+
+    const newOrders = orders.filter((order) => !adminSeenOrderIds.has(order.id));
+    orders.forEach((order) => adminSeenOrderIds.add(order.id));
+    if (!newOrders.length) return;
+
+    const latestOrder = newOrders[0];
+    const customerName = latestOrder.profiles?.name || "A customer";
+    const orderLabel = latestOrder.id.slice(0, 8).toUpperCase();
+    showNotice(
+        newOrders.length === 1
+            ? `New order from ${customerName} (#${orderLabel}). Open Orders to review it.`
+            : `${newOrders.length} new orders received. Latest: ${customerName} (#${orderLabel}).`,
+        "success"
+    );
+}
+
+async function checkForNewAdminOrders() {
+    if (profile?.role !== "admin") return;
+    const { data: orders, error } = await client
+        .from("orders")
+        .select("id,created_at,profiles!orders_user_id_fkey(name)")
+        .order("created_at", { ascending: false })
+        .limit(100);
+    if (error) throw error;
+    notifyAdminOfNewOrders(orders);
+}
+
 function renderMenu() {
     activeView = "menu";
     renderAccountBar();
@@ -656,6 +691,7 @@ async function loadAdminDashboard() {
     if (menuError) throw menuError;
     if (customerError) throw customerError;
 
+    notifyAdminOfNewOrders(orders);
     adminOrders = orders;
     const now = new Date();
     const ordersToday = orders.filter((order) => {
@@ -761,8 +797,12 @@ async function loadAdminDashboard() {
 
     if (!adminRefreshTimer) {
         adminRefreshTimer = window.setInterval(() => {
-            if (profile?.role === "admin" && activeView === "admin") {
-                loadAdminDashboard().catch(handleError);
+            if (profile?.role === "admin") {
+                if (activeView === "admin") {
+                    loadAdminDashboard().catch(handleError);
+                } else {
+                    checkForNewAdminOrders().catch(handleError);
+                }
             } else if (profile?.role === "chef" && activeView === "chef-orders") {
                 loadChefDashboard().catch(handleError);
             }
@@ -1245,6 +1285,8 @@ async function onSession(session) {
     if (!currentUser) {
         window.clearInterval(adminRefreshTimer);
         adminRefreshTimer = undefined;
+        adminOrderNotificationsInitialized = false;
+        adminSeenOrderIds.clear();
         profile = null;
         cart = {};
         renderAuth();

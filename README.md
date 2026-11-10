@@ -15,6 +15,7 @@ The schema creates the public `canteen-food-images` Storage bucket for admin foo
 
 - Promote an existing, confirmed account to `admin` using the SQL in **Publish on GitHub Pages**. Open `site/chef.html` and sign in with that admin account to use the administration console. The page checks the profile role after authentication; there is no public admin registration.
 - Chefs continue to sign in from the customer sign-in page using **Chef sign in**. Their existing kitchen queue and menu access remain role-restricted.
+- When signed in, admins receive an in-app notice for newly placed customer orders while the admin site is open. The console checks for new orders every 20 seconds; keep it open to see incoming notices.
 - The admin console summarizes paid revenue only for delivered/completed orders. Payment records are read-only; online payments must be confirmed by a verified payment provider, not by an admin UI action.
 - Food image uploads are validated in the browser and restricted by Supabase Storage to admin accounts, allowed image MIME types, and 5 MB. Supabase Storage must be available in the project.
 - Customer contact details and order history are visible only to signed-in admins under the existing row-level security policies. Passwords are never exposed. Suspending Supabase Auth accounts requires a trusted server-side Auth Admin API integration and is not exposed through this static app.

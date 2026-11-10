@@ -1,11 +1,11 @@
 # Campus Canteen
 
-A static campus canteen ordering website hosted on GitHub Pages, with Supabase providing authentication, menu data, order storage, and admin permissions. Students can browse the menu, submit pickup orders, and track their status. Canteen admins can add menu items, view incoming orders (the dashboard refreshes automatically every 20 seconds), and update their status.
+A static campus canteen ordering website hosted on GitHub Pages, with Supabase providing authentication, menu data, order storage, and staff permissions. Students can browse the menu, submit pickup orders, and track their status. Chefs get a kitchen queue of orders to prepare, can update preparation status, and can add or edit menu items. Canteen admins can view incoming orders, manage staff access, and track on-hand inventory. Inventory counts are maintained by the canteen and are not automatically reduced when orders are placed.
 
 ## Set up Supabase
 
 1. Create a Supabase project.
-2. In the Supabase SQL Editor, run [`supabase/schema.sql`](./supabase/schema.sql). This creates the menu and order tables, enables row-level security, and seeds the menu. If the project is already set up, run the updated SQL again to enable admin menu management.
+2. In the Supabase SQL Editor, run [`supabase/schema.sql`](./supabase/schema.sql). This creates the menu and order tables, enables row-level security, and seeds the menu. The schema also provides `categories`, `cart`, `cart_items`, `payments`, and `reviews`; `users` and `food_items` are compatibility views over the existing `profiles` and `foods` tables. Supabase Auth remains the source of credentials. If the project is already set up, run the updated SQL again to apply the additions. Existing menu items will be marked as not counted until the canteen enters their stock quantities.
 3. In Supabase **Authentication → Providers → Email**, enable email/password sign-in and keep email confirmation enabled. After creating an account, users must open the confirmation link sent to their email before signing in. The website can resend the link if needed. Users can request a password reset from the sign-in screen; configure Supabase email templates and SMTP delivery for production.
 4. In `site/static/config.js`, set the Supabase project URL and **publishable/anon key** from **Project Settings → API**. This key is intended for browser use; never put a `service_role` or secret key in this file.
 
@@ -37,6 +37,20 @@ For delivery to real users, configure a custom SMTP provider in Supabase **Authe
 
    The account must be registered before running the query. The admin role is not assignable through the website.
 
+8. To let a chef account receive kitchen orders, register and confirm that account first. As an admin, open **Staff access** and change the account to **Chef**. Alternatively, assign the chef role in the SQL Editor (replace the email):
+
+   ```sql
+   update public.profiles
+   set role = 'chef'
+   where id = (
+     select id
+     from auth.users
+     where email = 'chef@example.com'
+   );
+   ```
+
+  The chef signs in with that account to see the kitchen order queue and add menu items. Chef access does not include editing existing items or managing inventory.
+
 ## Local preview
 
 After configuring `site/static/config.js`, run a local static server from the repository root:
@@ -52,6 +66,7 @@ Then open `http://127.0.0.1:8000`. The local HTTP server only serves the website
 ```text
 site/                   Static website published by GitHub Pages
   index.html            App shell
+  chef.html             Chef sign-in and kitchen order queue
   static/app.js         Customer and admin interface
   static/config.js      Supabase project URL and public browser key
   static/style.css      Responsive styles

@@ -1470,7 +1470,7 @@ async function renderCheckout() {
                 </label>
                 <button class="button button-primary button-wide" type="submit">Place order</button>
             </form>
-            <aside class="summary-card">
+            <aside class="summary-card checkout-summary">
                 <h2>Order summary</h2>
                 ${items.map((item) => `<div class="summary-line"><span>${escapeHtml(item.name)} × ${item.quantity}</span><span>${money.format(item.price * item.quantity)}</span></div>`).join("")}
                 <div class="summary-line"><span>Subtotal</span><span>${money.format(subtotal)}</span></div>

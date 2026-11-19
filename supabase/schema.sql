@@ -92,6 +92,7 @@ create table if not exists public.orders (
         check (status in ('Pending', 'Accepted', 'Preparing', 'Ready for Pickup', 'Out for Delivery', 'Delivered', 'Completed', 'Cancelled')),
     phone text,
     delivery_address text,
+    fulfillment_type text check (fulfillment_type in ('dine_in', 'takeaway')),
     payment_method text,
     payment_status text default 'Pending' check (payment_status in ('Pending', 'Paid', 'Failed', 'Refunded')),
     cancellation_reason text,
@@ -100,9 +101,14 @@ create table if not exists public.orders (
 
 alter table public.orders add column if not exists phone text;
 alter table public.orders add column if not exists delivery_address text;
+alter table public.orders add column if not exists fulfillment_type text;
 alter table public.orders add column if not exists payment_method text;
 alter table public.orders add column if not exists payment_status text default 'Pending';
 alter table public.orders add column if not exists cancellation_reason text;
+alter table public.orders drop constraint if exists orders_fulfillment_type_check;
+alter table public.orders
+    add constraint orders_fulfillment_type_check
+    check (fulfillment_type in ('dine_in', 'takeaway'));
 alter table public.orders drop constraint if exists orders_status_check;
 alter table public.orders
     add constraint orders_status_check check (status in (
@@ -531,11 +537,12 @@ create trigger on_canteen_auth_user_created
     for each row execute procedure public.create_canteen_profile();
 
 drop function if exists public.place_order(jsonb);
+drop function if exists public.place_order(jsonb, text, text, text);
 
 create or replace function public.place_order(
     p_items jsonb,
     p_phone text default null,
-    p_delivery_address text default null,
+    p_fulfillment_type text default null,
     p_payment_method text default null
 )
 returns uuid
@@ -563,11 +570,11 @@ begin
     end if;
 
     if p_phone is null or trim(p_phone) = '' then
-        raise exception 'Phone number is required for delivery orders.';
+        raise exception 'A contact phone number is required.';
     end if;
 
-    if p_delivery_address is null or trim(p_delivery_address) = '' then
-        raise exception 'Delivery address is required for delivery orders.';
+    if p_fulfillment_type is null or p_fulfillment_type not in ('dine_in', 'takeaway') then
+        raise exception 'Choose dine-in or takeaway for your order.';
     end if;
 
     select count(*), count(distinct item.food_id)
@@ -597,9 +604,9 @@ begin
         raise exception 'An item is unavailable. Refresh the menu and try again.';
     end if;
 
-    insert into public.orders (user_id, total, phone, delivery_address, payment_method, payment_status)
+    insert into public.orders (user_id, total, phone, fulfillment_type, payment_method, payment_status)
     values (
-        (select auth.uid()), order_total, trim(p_phone), trim(p_delivery_address),
+        (select auth.uid()), order_total, trim(p_phone), p_fulfillment_type,
         coalesce(nullif(trim(p_payment_method), ''), 'Cash on Delivery'), 'Pending'
     )
     returning id into new_order_id;

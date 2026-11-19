@@ -11,7 +11,6 @@ const money = new Intl.NumberFormat("en-IN", {
     currency: "INR",
     maximumFractionDigits: 0
 });
-const DELIVERY_CHARGE = 40;
 const menuImageFallbacks = {
     "tea": "./static/assets/tea.jpg",
     "plain paratha": "./static/assets/paratha.jpg",
@@ -35,6 +34,11 @@ function foodImage(food) {
     const name = (food.name || "").toLowerCase();
     return Object.entries(menuImageFallbacks).find(([key]) => name.includes(key))?.[1] || null;
 }
+function fulfillmentLabel(type) {
+    if (type === "dine_in") return "Receive at the canteen";
+    if (type === "takeaway") return "Takeaway (packed)";
+    return "Collection not specified";
+}
 let menuSearch = "";
 let activeCategory = "all";
 let menuSort = "featured";
@@ -47,7 +51,8 @@ let cart = {};
 let activeView = "menu";
 let noticeTimer;
 let adminRefreshTimer;
-let isPasswordRecovery = false;
+let isPasswordRecovery = new URLSearchParams(window.location.search).get("type") === "recovery"
+    || new URLSearchParams(window.location.hash.slice(1)).get("type") === "recovery";
 let adminOrders = [];
 let adminOrderFilter = "all";
 let adminOrderSearch = "";
@@ -405,8 +410,7 @@ function renderMenu() {
         })
         .filter((item) => item && item.quantity > 0);
     const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const deliveryCharge = subtotal > 0 ? DELIVERY_CHARGE : 0;
-    const total = subtotal + deliveryCharge;
+    const total = subtotal;
     const initials = (profile?.name || "Customer")
         .split(/\s+/)
         .filter(Boolean)
@@ -476,10 +480,10 @@ function renderMenu() {
                 </ul>` : `<div class="customer-order-empty"><span aria-hidden="true">＋</span><p>Your order is empty.</p><span>Add a dish to get started.</span></div>`}
                 <div class="customer-order-summary">
                     <div class="summary-line"><span>Subtotal</span><span>${money.format(subtotal)}</span></div>
-                    <div class="summary-line"><span>Delivery</span><span>${money.format(deliveryCharge)}</span></div>
+                    <div class="summary-line"><span>Collection</span><span>Free</span></div>
                     <div class="summary-total"><span>Total amount</span><strong>${money.format(total)}</strong></div>
                     <button class="button button-primary button-wide customer-checkout" data-action="checkout" type="button" ${cartItems.length ? "" : "disabled"}>Checkout</button>
-                    <p class="summary-note">Review your delivery details at checkout.</p>
+                    <p class="summary-note">Choose dine-in or takeaway at checkout.</p>
                 </div>
             </aside>
         </div>`;
@@ -507,8 +511,7 @@ function renderCart() {
     }
 
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const deliveryCharge = subtotal > 0 ? DELIVERY_CHARGE : 0;
-    const total = subtotal + deliveryCharge;
+    const total = subtotal;
     root.innerHTML = `
         <section class="page-heading">
             <div><span class="eyebrow">YOUR ORDER</span><h1>Your cart</h1><p>Review your items before placing your pickup order.</p></div>
@@ -532,7 +535,7 @@ function renderCart() {
             <aside class="summary-card">
                 <h2>Order summary</h2>
                 <div class="summary-line"><span>Items (${cartCount()})</span><span>${money.format(subtotal)}</span></div>
-                <div class="summary-line"><span>Delivery</span><span>${money.format(deliveryCharge)}</span></div>
+                <div class="summary-line"><span>Collection</span><span>Free</span></div>
                 <div class="summary-total"><span>Total</span><strong>${money.format(total)}</strong></div>
                 <button class="button button-primary button-wide" data-action="checkout" type="button">Proceed to checkout</button>
                 <p class="summary-note">Pay when you collect your order or use online payment if enabled.</p>
@@ -553,7 +556,7 @@ function orderCard(order, admin = false) {
     const customer = admin
         ? `<div class="customer-detail"><strong>${escapeHtml(order.profiles?.name || "Customer")}</strong><span>${escapeHtml(order.profiles?.email || "")}</span></div>`
         : "";
-    const hasDeliveryDetails = order.delivery_address || order.phone || order.payment_method;
+    const hasOrderDetails = order.fulfillment_type || order.phone || order.payment_method;
     const status = admin
         ? `<form class="status-form" data-order-id="${order.id}">
                <label class="sr-only" for="status-${order.id}">Update order ${order.id} status</label>
@@ -580,11 +583,11 @@ function orderCard(order, admin = false) {
     return `
         <article class="order-card">
             <div class="order-topline">
-                <div><span class="eyebrow">${admin ? "INCOMING ORDER" : "PICKUP ORDER"}</span><h2>Order #${escapeHtml(order.id.slice(0, 8).toUpperCase())}</h2></div>
+                <div><span class="eyebrow">${admin ? "INCOMING ORDER" : "CANTEEN ORDER"}</span><h2>Order #${escapeHtml(order.id.slice(0, 8).toUpperCase())}</h2></div>
                 ${status}
             </div>
             ${customer}
-            ${hasDeliveryDetails ? `<div class="customer-detail"><span>${escapeHtml(order.phone || "")}</span><span>${escapeHtml(order.delivery_address || "")}</span><span>${escapeHtml(order.payment_method || "")}</span></div>` : ""}
+            ${hasOrderDetails ? `<div class="customer-detail"><span>${escapeHtml(order.phone || "")}</span><span>${escapeHtml(fulfillmentLabel(order.fulfillment_type))}</span><span>${escapeHtml(order.payment_method || "")}</span></div>` : ""}
             <p class="order-date">${escapeHtml(new Date(order.created_at).toLocaleString())}</p>
             ${orderItemsMarkup(order.order_items)}
             <div class="order-total"><span>Total</span><strong>${money.format(order.total)}</strong></div>
@@ -605,7 +608,7 @@ function chefOrderCard(order) {
                 <div><span class="eyebrow">KITCHEN TICKET</span><h2>Order #${escapeHtml(order.id.slice(0, 8).toUpperCase())}</h2></div>
                 ${nextStatus ? `<form class="status-form" data-order-id="${escapeHtml(order.id)}"><input type="hidden" name="status" value="${nextStatus}"><button class="button button-primary button-small" type="submit">${nextStatus === "Accepted" ? "Accept order" : nextStatus === "Preparing" ? "Start preparing" : "Mark ready"}</button></form>` : `<span class="status-pill">${escapeHtml(order.status)}</span>`}
             </div>
-            <p class="order-date">Placed ${escapeHtml(new Date(order.created_at).toLocaleString())}</p>
+            <p class="order-date">Placed ${escapeHtml(new Date(order.created_at).toLocaleString())} · ${escapeHtml(fulfillmentLabel(order.fulfillment_type))}</p>
             <ul class="order-items kitchen-items">${(order.order_items || []).map((item) => `
                 <li><span>${escapeHtml(item.foods?.name || "Menu item")}</span><strong>× ${item.quantity}</strong></li>`).join("")}</ul>
         </article>`;
@@ -636,7 +639,7 @@ async function loadCustomerOrders() {
     setLoading("Loading your orders…");
     const { data, error } = await client
         .from("orders")
-        .select("id,total,status,created_at,phone,delivery_address,payment_method,payment_status,order_items(quantity,unit_price,foods(name,id))")
+        .select("id,total,status,created_at,phone,fulfillment_type,payment_method,payment_status,order_items(quantity,unit_price,foods(name,id))")
         .eq("user_id", currentUser.id)
         .order("created_at", { ascending: false });
     if (error) throw error;
@@ -791,7 +794,7 @@ async function loadChefDashboard() {
     if (!adminRefreshTimer) setLoading("Loading kitchen orders…");
     const { data: orders, error } = await client
         .from("orders")
-        .select("id,status,created_at,phone,delivery_address,payment_method,payment_status,order_items(quantity,foods(name))")
+        .select("id,status,created_at,phone,fulfillment_type,payment_method,payment_status,order_items(quantity,foods(name))")
         .order("created_at", { ascending: true });
     if (error) throw error;
 
@@ -901,7 +904,7 @@ function adminOrderTableMarkup() {
             const choices = nextStatuses[order.status] || [];
             return `<tr>
                 <td><strong>#${escapeHtml(order.id.slice(0, 8).toUpperCase())}</strong><small>${escapeHtml(new Date(order.created_at).toLocaleString())}</small></td>
-                <td><strong>${escapeHtml(order.profiles?.name || "Customer")}</strong><small>${escapeHtml(order.phone || order.profiles?.email || "")}</small><details class="admin-order-details"><summary>Contact & address</summary><div><span>${escapeHtml(order.profiles?.email || "")}</span><span>${escapeHtml(order.delivery_address || "No delivery address")}</span></div></details></td>
+                <td><strong>${escapeHtml(order.profiles?.name || "Customer")}</strong><small>${escapeHtml(order.phone || order.profiles?.email || "")}</small><details class="admin-order-details"><summary>Contact & collection</summary><div><span>${escapeHtml(order.profiles?.email || "")}</span><span>${escapeHtml(fulfillmentLabel(order.fulfillment_type))}</span></div></details></td>
                 <td><details class="admin-order-details"><summary>${(order.order_items || []).reduce((sum, item) => sum + Number(item.quantity), 0)} item(s)</summary><div>${(order.order_items || []).map((item) => `<span>${escapeHtml(item.foods?.name || "Menu item")} × ${item.quantity}</span>`).join("")}</div></details></td>
                 <td><strong>${money.format(order.total)}</strong><small>${escapeHtml(order.payment_method || "Payment not specified")} · ${escapeHtml(order.payment_status || "Pending")}</small></td>
                 <td><span class="admin-status-badge">${escapeHtml(order.status)}</span></td>
@@ -915,7 +918,7 @@ async function loadAdminOrders() {
     activeView = "admin-orders";
     setLoading("Loading orders…");
     const { data, error } = await client.from("orders")
-        .select("id,total,status,created_at,phone,delivery_address,payment_method,payment_status,cancellation_reason,profiles!orders_user_id_fkey(name,email),order_items(quantity,unit_price,foods(name))")
+        .select("id,total,status,created_at,phone,fulfillment_type,payment_method,payment_status,cancellation_reason,profiles!orders_user_id_fkey(name,email),order_items(quantity,unit_price,foods(name))")
         .order("created_at", { ascending: false });
     if (error) throw error;
     adminOrders = data;
@@ -1461,12 +1464,11 @@ async function renderCheckout() {
         })
         .filter(Boolean);
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const deliveryCharge = subtotal > 0 ? DELIVERY_CHARGE : 0;
-    const total = subtotal + deliveryCharge;
+    const total = subtotal;
 
     root.innerHTML = `
         <section class="page-heading">
-            <div><span class="eyebrow">CHECKOUT</span><h1>Complete your order</h1><p>Confirm delivery details and payment before placing your order.</p></div>
+            <div><span class="eyebrow">CHECKOUT</span><h1>Complete your order</h1><p>Choose how you would like to receive your order.</p></div>
         </section>
         <section class="checkout-layout">
             <form id="checkout-form" class="checkout-form">
@@ -1476,9 +1478,17 @@ async function renderCheckout() {
                 <label>Contact number
                     <input name="phone" value="${escapeHtml(profile?.phone || "")}" type="tel" inputmode="tel" maxlength="20" required>
                 </label>
-                <label>Delivery address
-                    <textarea name="delivery_address" rows="4" maxlength="250" required>${escapeHtml(profile?.delivery_address || "")}</textarea>
-                </label>
+                <fieldset class="fulfillment-options">
+                    <legend>Order collection</legend>
+                    <label class="fulfillment-option">
+                        <input name="fulfillment_type" type="radio" value="dine_in" checked>
+                        <span><strong>Receive at the canteen</strong><small>Eat in at the canteen</small></span>
+                    </label>
+                    <label class="fulfillment-option">
+                        <input name="fulfillment_type" type="radio" value="takeaway">
+                        <span><strong>Takeaway (packed)</strong><small>We’ll pack your order to go</small></span>
+                    </label>
+                </fieldset>
                 <label>Payment method
                     <select name="payment_method">
                         <option value="Cash on Delivery">Cash on Delivery</option>
@@ -1491,7 +1501,7 @@ async function renderCheckout() {
                 <h2>Order summary</h2>
                 ${items.map((item) => `<div class="summary-line"><span>${escapeHtml(item.name)} × ${item.quantity}</span><span>${money.format(item.price * item.quantity)}</span></div>`).join("")}
                 <div class="summary-line"><span>Subtotal</span><span>${money.format(subtotal)}</span></div>
-                <div class="summary-line"><span>Delivery</span><span>${money.format(deliveryCharge)}</span></div>
+                <div class="summary-line"><span>Collection</span><span>Free</span></div>
                 <div class="summary-total"><span>Total</span><strong>${money.format(total)}</strong></div>
             </aside>
         </section>`;
@@ -1501,23 +1511,19 @@ async function placeOrder(form) {
     const values = new FormData(form);
     const name = String(values.get("name") || "").trim();
     const phone = String(values.get("phone") || "").trim();
-    const deliveryAddress = String(values.get("delivery_address") || "").trim();
+    const fulfillmentType = String(values.get("fulfillment_type") || "");
     const paymentMethod = String(values.get("payment_method") || "Cash on Delivery").trim();
     const items = Object.entries(cart).map(([foodId, quantity]) => ({
         food_id: Number(foodId),
         quantity
     }));
 
-    if (!name || !phone || !deliveryAddress) {
-        showNotice("Enter your name, phone number, and delivery address before placing the order.", "error");
+    if (!name || !phone || !["dine_in", "takeaway"].includes(fulfillmentType)) {
+        showNotice("Enter your name and contact number, and choose how to receive your order.", "error");
         return;
     }
     if (!isValidPhone(phone)) {
         showNotice("Enter a valid phone number.", "error");
-        return;
-    }
-    if (deliveryAddress.length < 8) {
-        showNotice("Enter a complete delivery address.", "error");
         return;
     }
     if (items.length === 0) {
@@ -1543,7 +1549,7 @@ async function placeOrder(form) {
     const { data: orderId, error } = await client.rpc("place_order", {
         p_items: items,
         p_phone: phone,
-        p_delivery_address: deliveryAddress,
+        p_fulfillment_type: fulfillmentType,
         p_payment_method: paymentMethod
     });
     if (error) throw error;
@@ -1552,8 +1558,7 @@ async function placeOrder(form) {
         .from("profiles")
         .update({
             name,
-            phone,
-            delivery_address: deliveryAddress
+            phone
         })
         .eq("id", currentUser.id);
     if (profileError) throw profileError;

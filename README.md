@@ -87,4 +87,4 @@ supabase/email-templates/  Supabase Auth email templates
 .github/workflows/      GitHub Pages deployment
 ```
 
-The ordering flow supports pickup orders and status tracking. It does not process online payments or provide delivery.
+At checkout, students choose between receiving their order at the canteen or taking it away packed; no delivery address is needed. The ordering flow includes status tracking but does not process online payments or provide delivery.

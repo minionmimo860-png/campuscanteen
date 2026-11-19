@@ -12,6 +12,29 @@ const money = new Intl.NumberFormat("en-IN", {
     maximumFractionDigits: 0
 });
 const DELIVERY_CHARGE = 40;
+const menuImageFallbacks = {
+    "tea": "./static/assets/tea.jpg",
+    "plain paratha": "./static/assets/paratha.jpg",
+    "pori": "./static/assets/pori.jpg",
+    "allu paratha": "./static/assets/paratha.jpg",
+    "veg roll": "./static/assets/veg-roll.jpg",
+    "egg roll": "./static/assets/egg-roll.jpg",
+    "chicken roll": "./static/assets/chicken-roll.jpg",
+    "veg chow": "./static/assets/veg-chow.jpg",
+    "egg chow": "./static/assets/egg-chow.jpg",
+    "chicken chow": "./static/assets/pepper-chicken.jpg",
+    "chicken lollipop": "./static/assets/chicken-lollipop.jpg",
+    "chicken dry fry": "./static/assets/chicken-fry.jpg",
+    "chicken pakoda": "./static/assets/pakoda.jpg",
+    "veg pakoda": "./static/assets/pakoda.jpg",
+    "fried rice": "./static/assets/fried-rice.jpg",
+    "chicken fried rice": "./static/assets/chicken-fried-rice.jpg"
+};
+function foodImage(food) {
+    if (food.image_url) return food.image_url;
+    const name = (food.name || "").toLowerCase();
+    return Object.entries(menuImageFallbacks).find(([key]) => name.includes(key))?.[1] || null;
+}
 let menuSearch = "";
 let activeCategory = "all";
 let menuSort = "featured";
@@ -78,53 +101,6 @@ function configIsReady() {
         && !config.supabaseUrl.includes("YOUR_PROJECT_ID")
         && config.supabaseAnonKey
         && !config.supabaseAnonKey.includes("YOUR_SUPABASE");
-}
-
-function renderChefLogin(mode = "login", {
-    email = "",
-    confirmationMessage = "",
-    showResendConfirmation = true
-} = {}) {
-    const registering = mode === "register";
-    accountBar.innerHTML = "";
-    root.innerHTML = `
-        <section class="auth-layout chef-auth-layout">
-            <div class="auth-intro">
-                <span class="eyebrow">CANTEEN KITCHEN</span>
-                <h1>Kitchen orders.<br><span>Ready to make.</span></h1>
-                <p>${registering ? "Create an account to request access to the kitchen queue." : "Sign in to see the dishes and quantities waiting to be prepared."}</p>
-            </div>
-            <div class="auth-card">
-                <div class="auth-switch" role="group" aria-label="Chef account options">
-                    <button class="switch-button ${registering ? "" : "active"}" data-view="login" type="button">Sign in</button>
-                    <button class="switch-button ${registering ? "active" : ""}" data-view="register" type="button">Create account</button>
-                </div>
-                <h2>${registering ? "Create chef account" : "Chef sign in"}</h2>
-                <p class="muted">${registering ? "The canteen owner must assign chef access after registration." : "Use the chef account provided by the canteen owner."}</p>
-                ${confirmationMessage ? `<div class="auth-confirmation" role="status"><p>${escapeHtml(confirmationMessage)}</p>${showResendConfirmation ? `<button class="button button-secondary button-wide" data-action="resend-confirmation" data-email="${escapeHtml(email)}" type="button">Resend confirmation email</button>` : ""}</div>` : ""}
-                <form id="auth-form" class="form-stack" data-mode="${registering ? "register" : "login"}">
-                    ${registering ? `<label>Full name
-                        <input name="name" autocomplete="name" maxlength="80" required>
-                    </label>
-                    <label>Username
-                        <input name="username" autocomplete="username" minlength="3" maxlength="30" required>
-                    </label>` : ""}
-                    <label>Email address
-                        <input name="email" type="email" autocomplete="email" value="${escapeHtml(email)}" required>
-                    </label>
-                    <label>Password
-                        <div class="password-field">
-                            <input name="password" type="password" autocomplete="${registering ? "new-password" : "current-password"}" minlength="${registering ? "8" : "1"}" required>
-                            <button class="password-toggle" data-action="toggle-password" type="button" aria-label="Show password" aria-pressed="false">Show</button>
-                        </div>
-                    </label>
-                    <button class="button button-primary button-wide" type="submit">${registering ? "Create account" : "Sign in to kitchen"}</button>
-                </form>
-                ${!registering ? `<button class="text-button" data-view="forgot-password" data-email="${escapeHtml(email)}" type="button">Forgot password?</button>` : ""}
-                ${currentUser ? `<button class="button button-quiet button-wide" data-action="logout" type="button">Sign out</button>` : ""}
-                <a class="text-button staff-return-link" href="./" data-action="switch-account" data-destination="./">Switch to customer sign in</a>
-            </div>
-        </section>`;
 }
 
 function renderAdminLogin({ confirmationMessage = "" } = {}) {
@@ -228,7 +204,6 @@ function renderAuth(mode = "login", {
                     <button class="button button-primary button-wide" type="submit">${registering ? "Create account" : "Sign in"}</button>
                 </form>
                 ${!registering ? `<button class="text-button" data-view="forgot-password" data-email="${escapeHtml(email)}" type="button">Forgot password?</button>` : ""}
-                ${!registering ? `<button class="text-button" data-view="chef-login" type="button">Chef sign in</button>` : ""}
                 <p class="auth-footnote">Pickup orders only. Payment is made at the canteen.</p>
             </div>
         </section>`;
@@ -466,7 +441,7 @@ function renderMenu() {
                 <section class="food-grid" aria-label="Canteen menu">
                     ${visibleFoods.length ? visibleFoods.map((food) => `
                         <article class="food-card ${food.is_available ? "" : "unavailable"}">
-                            <div class="food-art" aria-hidden="true">${food.image_url ? `<img src="${escapeHtml(food.image_url)}" alt="" loading="lazy">` : `<span>${escapeHtml(food.emoji)}</span>`}</div>
+                            <div class="food-art" aria-hidden="true">${foodImage(food) ? `<img src="${escapeHtml(foodImage(food))}" alt="" loading="lazy">` : `<span>${escapeHtml(food.emoji)}</span>`}</div>
                             <div class="food-info">
                                 <div class="food-meta-row"><span class="food-category">${escapeHtml(food.category || "Other")}</span>${food.is_available ? "" : '<span class="availability-pill unavailable">Unavailable</span>'}</div>
                                 <h2>${escapeHtml(food.name)}</h2>
@@ -489,7 +464,7 @@ function renderMenu() {
                 ${cartItems.length ? `<ul class="customer-order-items">
                     ${cartItems.map((item) => `
                         <li>
-                            <span class="order-item-art" aria-hidden="true">${item.image_url ? `<img src="${escapeHtml(item.image_url)}" alt="" loading="lazy">` : escapeHtml(item.emoji)}</span>
+                            <span class="order-item-art" aria-hidden="true">${foodImage(item) ? `<img src="${escapeHtml(foodImage(item))}" alt="" loading="lazy">` : escapeHtml(item.emoji)}</span>
                             <span class="customer-order-item-name"><strong>${escapeHtml(item.name)}</strong><span>${item.quantity} × ${money.format(item.price)}</span></span>
                             <span class="customer-order-item-total">${money.format(item.price * item.quantity)}</span>
                             <span class="customer-order-quantity" aria-label="Quantity for ${escapeHtml(item.name)}">
@@ -543,7 +518,7 @@ function renderCart() {
             <section class="cart-list" aria-label="Cart items">
                 ${items.map((item) => `
                     <article class="cart-item">
-                        <div class="cart-item-art" aria-hidden="true">${item.image_url ? `<img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.name)}" loading="lazy">` : escapeHtml(item.emoji)}</div>
+                        <div class="cart-item-art" aria-hidden="true">${foodImage(item) ? `<img src="${escapeHtml(foodImage(item))}" alt="${escapeHtml(item.name)}" loading="lazy">` : escapeHtml(item.emoji)}</div>
                         <div class="cart-item-info"><h2>${escapeHtml(item.name)}</h2><p>${money.format(item.price)} each</p></div>
                         <div class="quantity-control" aria-label="Quantity for ${escapeHtml(item.name)}">
                             <button data-action="decrease" data-id="${item.id}" type="button" aria-label="Decrease quantity">−</button>
@@ -1916,8 +1891,6 @@ document.addEventListener("click", async (event) => {
         const view = viewButton.dataset.view;
         if (view === "login" || view === "register") {
             renderAuth(view, { email: viewButton.dataset.email || "" });
-        } else if (view === "chef-login") {
-            renderChefLogin("login");
         } else if (view === "forgot-password") {
             renderForgotPassword(viewButton.dataset.email || "");
         } else if (view === "menu") {

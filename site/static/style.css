@@ -382,6 +382,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 body:has(.customer-dashboard-layout) { background: #fff4df; }
 body:has(.customer-dashboard-layout) .site-header { background: transparent; border-bottom-color: rgba(83, 68, 40, .1); }
+body:has(.customer-dashboard-layout) .brand-mark { background: #228d67; box-shadow: 0 7px 18px rgba(34, 141, 103, .18); }
+body:has(.customer-dashboard-layout) .nav-button.active { background: #e5f4eb; }
 .page-shell:has(.customer-dashboard-layout) { width: min(1440px, calc(100% - 56px)); margin: 30px auto 44px; }
 .customer-dashboard-layout {
     min-height: min(760px, calc(100vh - 190px));
@@ -411,8 +413,8 @@ body:has(.customer-dashboard-layout) .site-header { background: transparent; bor
 .customer-menu-panel .menu-result-count { background: #f5f6f3; font-weight: 600; }
 .customer-menu-panel .food-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 16px; }
 .customer-menu-panel .food-card { border: 0; border-radius: 13px; box-shadow: none; }
-.customer-menu-panel .food-card:hover { transform: translateY(-2px); box-shadow: none; }
-.customer-menu-panel .food-art { height: clamp(112px, 12vw, 158px); min-height: 0; border-radius: 13px; background: linear-gradient(140deg, #f8efdf, #edf4e9); }
+.customer-menu-panel .food-card:hover { transform: translateY(-4px); box-shadow: none; }
+.customer-menu-panel .food-art { height: clamp(112px, 12vw, 158px); min-height: 0; border-radius: 13px; background: linear-gradient(140deg, #f8efdf, #edf4e9); box-shadow: inset 0 0 0 1px rgba(45, 69, 56, .04); }
 .customer-menu-panel .food-art > span { font-size: 3.1rem; }
 .customer-menu-panel .food-info { padding: 10px 1px 2px; }
 .customer-menu-panel .food-meta-row { display: none; }

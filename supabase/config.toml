@@ -1,0 +1,4 @@
+project_id = "campuscanteen"
+
+[functions.notify-admin-new-order]
+verify_jwt = true

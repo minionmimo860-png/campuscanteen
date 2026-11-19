@@ -5,7 +5,7 @@ A static campus canteen ordering website hosted on GitHub Pages, with Supabase p
 ## Set up Supabase
 
 1. Create a Supabase project.
-2. In the Supabase SQL Editor, run [`supabase/schema.sql`](./supabase/schema.sql). This creates the menu and order tables, enables row-level security, and seeds the menu. The schema also provides `categories`, `cart`, `cart_items`, `payments`, and `reviews`; `users` and `food_items` are compatibility views over the existing `profiles` and `foods` tables. Supabase Auth remains the source of credentials. If the project is already set up, run the updated SQL again to apply the additions. Existing menu items will be marked as not counted until the canteen enters their stock quantities.
+2. In the Supabase SQL Editor, run [`supabase/schema.sql`](./supabase/schema.sql). This creates the menu and order tables, enables row-level security, and seeds the menu. The schema also provides `categories`, `cart`, `cart_items`, `payments`, and `reviews`; `users` and `food_items` are compatibility views over the existing `profiles` and `foods` tables. Supabase Auth remains the source of credentials. If the project is already set up, run the updated SQL again to apply the additions. Existing menu items will be marked as not counted until the canteen enters their stock quantities. Checkout requires the updated `orders.fulfillment_type` column and `place_order` function; older database deployments must apply this SQL before orders can be placed.
 3. In Supabase **Authentication → Providers → Email**, enable email/password sign-in and keep email confirmation enabled. After creating an account, users must open the confirmation link sent to their email before signing in. The website can resend the link if needed. Users can request a password reset from the sign-in screen; configure Supabase email templates and SMTP delivery for production.
 4. In `site/static/config.js`, set the Supabase project URL and **publishable/anon key** from **Project Settings → API**. This key is intended for browser use; never put a `service_role` or secret key in this file.
 
@@ -15,11 +15,29 @@ The schema creates the public `canteen-food-images` Storage bucket for admin foo
 
 - Promote an existing, confirmed account to `admin` using the SQL in **Publish on GitHub Pages**. Open `site/chef.html` and sign in with that admin account to use the administration console. The page checks the profile role after authentication; there is no public admin registration.
 - Chefs continue to sign in from the customer sign-in page using **Chef sign in**. Their existing kitchen queue and menu access remain role-restricted.
-- When signed in, admins receive an in-app notice for newly placed customer orders while the admin site is open. The console checks for new orders every 20 seconds; keep it open to see incoming notices.
+- When signed in, admins receive an in-app notice for newly placed customer orders while the admin site is open. The console checks for new orders every 20 seconds; keep it open to see incoming notices. To also email admins when an order is placed, deploy the notification function as described below.
 - The admin console summarizes paid revenue only for delivered/completed orders. Payment records are read-only; online payments must be confirmed by a verified payment provider, not by an admin UI action.
 - Food image uploads are validated in the browser and restricted by Supabase Storage to admin accounts, allowed image MIME types, and 5 MB. Supabase Storage must be available in the project.
 - Customer contact details and order history are visible only to signed-in admins under the existing row-level security policies. Passwords are never exposed. Suspending Supabase Auth accounts requires a trusted server-side Auth Admin API integration and is not exposed through this static app.
 - The static app does not use Flask, SQLAlchemy, or Flask-Login. Do not put service-role credentials in browser code. Account deletion/suspension and other privileged Auth Admin actions require a separately hosted trusted backend.
+
+## New order email alerts
+
+The customer app calls the `notify-admin-new-order` Supabase Edge Function after an order is successfully saved. The function verifies the signed-in customer owns the order, then emails the order details to every profile with the `admin` role. The in-app admin notice continues to work independently.
+
+To enable email alerts:
+
+1. Create a [Resend](https://resend.com/) account, verify a sender domain, and create an API key.
+2. In the Supabase Dashboard, open **Edge Functions → Secrets** and add `RESEND_API_KEY` and `ADMIN_NOTIFICATION_FROM`. Set the sender value to a verified address, for example `Campus Canteen <orders@your-verified-domain>`. Supabase supplies `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to the function at runtime; do not put the service-role key in the website or commit it.
+3. From the repository root, sign in to the Supabase CLI, link the project, then deploy the function:
+
+   ```powershell
+   supabase login
+   supabase link --project-ref <your-project-ref>
+   supabase functions deploy notify-admin-new-order
+   ```
+
+Admin profiles need a valid email address. If the email provider or function is unavailable, the order remains placed and confirmed, and the customer sees that the email alert failed; the order is still available in the admin console.
 
 ## Password reset email
 
@@ -83,7 +101,9 @@ site/                   Static website published by GitHub Pages
   static/config.js      Supabase project URL and public browser key
   static/style.css      Responsive styles
 supabase/schema.sql     Database schema, menu seed, and access policies
+supabase/config.toml    Supabase CLI project and function settings
 supabase/email-templates/  Supabase Auth email templates
+supabase/functions/    Server-side email notifications
 .github/workflows/      GitHub Pages deployment
 ```
 

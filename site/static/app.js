@@ -1546,14 +1546,6 @@ async function placeOrder(form) {
         return;
     }
 
-    const { data: orderId, error } = await client.rpc("place_order", {
-        p_items: items,
-        p_phone: phone,
-        p_fulfillment_type: fulfillmentType,
-        p_payment_method: paymentMethod
-    });
-    if (error) throw error;
-
     const { error: profileError } = await client
         .from("profiles")
         .update({
@@ -1562,11 +1554,61 @@ async function placeOrder(form) {
         })
         .eq("id", currentUser.id);
     if (profileError) throw profileError;
+    profile = { ...profile, name, phone };
+
+    const { data: orderId, error } = await client.rpc("place_order", {
+        p_items: items,
+        p_phone: phone,
+        p_fulfillment_type: fulfillmentType,
+        p_payment_method: paymentMethod
+    });
+    if (error) throw error;
 
     cart = {};
     window.localStorage.removeItem(`canteen-cart:${currentUser.id}`);
-    showNotice("Order placed! The canteen has received it.", "success");
-    await loadCustomerOrders();
+    renderOrderConfirmation(orderId, fulfillmentType);
+    sendAdminOrderEmail(orderId);
+}
+
+async function sendAdminOrderEmail(orderId) {
+    try {
+        const { error: notificationError } = await client.functions.invoke("notify-admin-new-order", {
+            body: { order_id: orderId }
+        });
+        if (notificationError) throw notificationError;
+        updateOrderEmailStatus("The admin email alert was sent.");
+    } catch (error) {
+        console.error("Order was placed, but the admin email notification failed.", error);
+        updateOrderEmailStatus("The admin email alert could not be sent. The order is still in the admin console.", true);
+    }
+}
+
+function updateOrderEmailStatus(message, failed = false) {
+    const status = root.querySelector("#order-email-status");
+    if (!status) return;
+    status.textContent = message;
+    status.classList.toggle("failed", failed);
+}
+
+function renderOrderConfirmation(orderId, fulfillmentType) {
+    activeView = "orders";
+    renderAccountBar();
+    root.innerHTML = `
+        <section class="order-confirmation" aria-live="polite">
+            <span class="order-confirmation-icon" aria-hidden="true">✓</span>
+            <span class="eyebrow">ORDER CONFIRMED</span>
+            <h1>Your order is in!</h1>
+            <p>The canteen has received your order. You can check its status under My orders.</p>
+            <p id="order-email-status" class="order-email-status" role="status" aria-live="polite">Sending an email alert to the admin…</p>
+            <div class="order-confirmation-details">
+                <div><span>ORDER NUMBER</span><strong>#${escapeHtml(String(orderId).slice(0, 8).toUpperCase())}</strong></div>
+                <div><span>COLLECTION</span><strong>${escapeHtml(fulfillmentLabel(fulfillmentType))}</strong></div>
+            </div>
+            <div class="order-confirmation-actions">
+                <button class="button button-primary" data-view="orders" type="button">Track my order</button>
+                <button class="button button-secondary" data-view="menu" type="button">Back to menu</button>
+            </div>
+        </section>`;
 }
 
 async function updateOrderStatus(form) {
@@ -1853,7 +1895,13 @@ async function setMenuAvailability(button) {
 
 function handleError(error) {
     console.error(error);
-    showNotice(error?.message || "Something went wrong. Please try again.", "error");
+    const schemaOutdated = ["42703", "PGRST202", "PGRST204", "PGRST205"].includes(error?.code);
+    showNotice(
+        schemaOutdated
+            ? "The canteen database needs an update. Ask an administrator to run supabase/schema.sql in the Supabase SQL Editor."
+            : error?.message || "Something went wrong. Please try again.",
+        "error"
+    );
 }
 
 document.addEventListener("click", async (event) => {
@@ -1970,8 +2018,6 @@ document.addEventListener("click", async (event) => {
             showNotice("Item removed from cart.", "success");
         } else if (action === "checkout") {
             await renderCheckout().catch(handleError);
-        } else if (action === "place-order") {
-            await placeOrder();
         } else if (action === "cancel-order") {
             const orderId = actionButton.dataset.orderId;
             if (!orderId || !window.confirm("Cancel this order? This action cannot be undone.")) return;
@@ -2150,6 +2196,19 @@ root.addEventListener("submit", async (event) => {
             } finally {
                 submitButton.disabled = false;
                 submitButton.textContent = originalText;
+            }
+        } else if (form.id === "checkout-form") {
+            const submitButton = form.querySelector('button[type="submit"]');
+            const originalText = submitButton.textContent;
+            submitButton.disabled = true;
+            submitButton.textContent = "Placing order…";
+            try {
+                await placeOrder(form);
+            } finally {
+                if (submitButton.isConnected) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = originalText;
+                }
             }
         } else if (form.id === "profile-form") {
             const submitButton = form.querySelector('button[type="submit"]');

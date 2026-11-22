@@ -2,6 +2,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
 const config = window.CANTEEN_CONFIG || {};
 const isAdminPage = document.body.dataset.page === "admin";
+const isKitchenPage = document.body.dataset.page === "kitchen";
 const root = document.querySelector("#app");
 const accountBar = document.querySelector("#account-bar");
 const notice = document.querySelector("#notice");
@@ -108,19 +109,26 @@ function configIsReady() {
         && !config.supabaseAnonKey.includes("YOUR_SUPABASE");
 }
 
-function renderAdminLogin({ confirmationMessage = "" } = {}) {
+function renderStaffLogin({
+    area,
+    heading,
+    description,
+    accountDescription,
+    signInLabel,
+    confirmationMessage = ""
+}) {
     accountBar.innerHTML = "";
     root.innerHTML = `
         <section class="admin-login-layout">
             <div class="admin-login-intro">
-                <span class="eyebrow">CAMPUS CANTEEN · ADMINISTRATION</span>
-                <h1>Run the canteen<br><span>with confidence.</span></h1>
-                <p>Manage your menu, monitor orders, and keep service running smoothly.</p>
+                <span class="eyebrow">CAMPUS CANTEEN · ${area}</span>
+                <h1>${heading}</h1>
+                <p>${description}</p>
             </div>
             <div class="auth-card admin-login-card">
                 <span class="admin-login-mark" aria-hidden="true">C</span>
-                <h2>Administrator sign in</h2>
-                <p class="muted">Use your designated administrator account.</p>
+                <h2>${area === "ADMINISTRATION" ? "Administrator" : "Kitchen"} sign in</h2>
+                <p class="muted">${accountDescription}</p>
                 ${confirmationMessage ? `<div class="auth-confirmation" role="status"><p>${escapeHtml(confirmationMessage)}</p></div>` : ""}
                 <form id="auth-form" class="form-stack" data-mode="login">
                     <label>Email address
@@ -132,12 +140,34 @@ function renderAdminLogin({ confirmationMessage = "" } = {}) {
                             <button class="password-toggle" data-action="toggle-password" type="button" aria-label="Show password" aria-pressed="false">Show</button>
                         </div>
                     </label>
-                    <button class="button button-primary button-wide" type="submit">Sign in to admin</button>
+                    <button class="button button-primary button-wide" type="submit">${signInLabel}</button>
                 </form>
                 ${currentUser ? `<button class="button button-quiet button-wide" data-action="logout" type="button">Sign out of this account</button>` : ""}
                 <a class="staff-return-link admin-login-return" href="./">Return to customer sign in</a>
             </div>
         </section>`;
+}
+
+function renderAdminLogin({ confirmationMessage = "" } = {}) {
+    renderStaffLogin({
+        area: "ADMINISTRATION",
+        heading: "Run the canteen<br><span>with confidence.</span>",
+        description: "Manage your menu, monitor orders, and keep service running smoothly.",
+        accountDescription: "Use your designated administrator account.",
+        signInLabel: "Sign in to admin",
+        confirmationMessage
+    });
+}
+
+function renderKitchenLogin({ confirmationMessage = "" } = {}) {
+    renderStaffLogin({
+        area: "KITCHEN",
+        heading: "Run the kitchen<br><span>with confidence.</span>",
+        description: "View incoming tickets and update preparation status from one kitchen queue.",
+        accountDescription: "Use your designated chef account.",
+        signInLabel: "Sign in to kitchen",
+        confirmationMessage
+    });
 }
 
 function renderAuth(mode = "login", {
@@ -149,6 +179,10 @@ function renderAuth(mode = "login", {
         renderAdminLogin({ confirmationMessage });
         return;
     }
+    if (isKitchenPage) {
+        renderKitchenLogin({ confirmationMessage });
+        return;
+    }
     const registering = mode === "register";
     accountBar.innerHTML = "";
     root.innerHTML = `
@@ -158,6 +192,11 @@ function renderAuth(mode = "login", {
                 <h1>Good food.<br><span>Easy pickup.</span></h1>
                 <p>Order your campus favourites in a few taps. We’ll have them ready at the canteen.</p>
                 <div class="intro-note"><span aria-hidden="true">✦</span> Simple ordering, less waiting.</div>
+                <div class="auth-food-gallery" aria-hidden="true">
+                    <img class="auth-food-main" src="./static/assets/chicken-fried-rice.jpg" alt="">
+                    <img class="auth-food-side" src="./static/assets/veg-roll.jpg" alt="">
+                    <div class="auth-food-badge"><span aria-hidden="true">✦</span><strong>Fresh from the kitchen</strong><small>Made for your break</small></div>
+                </div>
             </div>
             <div class="auth-card">
                 <div class="auth-switch" role="group" aria-label="Account options">
@@ -181,9 +220,6 @@ function renderAuth(mode = "login", {
                     </label>
                     <label>Phone number
                         <input name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="20" required>
-                    </label>
-                    <label>Delivery address
-                        <textarea name="delivery_address" rows="3" maxlength="250" required></textarea>
                     </label>
                     <label>Password
                         <div class="password-field">
@@ -267,6 +303,16 @@ function renderAccountBar(view = activeView) {
         accountBar.innerHTML = "";
         return;
     }
+    if (isKitchenPage) {
+        accountBar.innerHTML = `
+            <nav class="main-nav" aria-label="Kitchen navigation">
+                <button class="nav-button ${view === "chef-orders" ? "active" : ""}" data-view="chef-orders" type="button">Kitchen orders</button>
+                <button class="nav-button ${view === "chef-menu" ? "active" : ""}" data-view="chef-menu" type="button">Menu</button>
+            </nav>
+            <span class="account-name">${escapeHtml(profile?.name || "Chef")}</span>
+            <button class="button button-quiet button-small" data-action="logout" type="button">Sign out</button>`;
+        return;
+    }
     if (!currentUser || !profile) {
         accountBar.innerHTML = "";
         return;
@@ -277,7 +323,7 @@ function renderAccountBar(view = activeView) {
            <button class="nav-button ${view === "admin-inventory" ? "active" : ""}" data-view="admin-inventory" type="button">Inventory</button>
            <button class="nav-button ${view === "admin-menu" ? "active" : ""}" data-view="admin-menu" type="button">Manage menu</button>
            <button class="nav-button ${view === "admin-staff" ? "active" : ""}" data-view="admin-staff" type="button">Staff access</button>
-           <a class="nav-button" href="./chef.html">Open admin portal</a>`
+           <a class="nav-button" href="./admin.html">Open admin portal</a>`
         : profile.role === "chef"
             ? `<button class="nav-button ${view === "chef-orders" ? "active" : ""}" data-view="chef-orders" type="button">Kitchen orders</button>
                <button class="nav-button ${view === "chef-menu" ? "active" : ""}" data-view="chef-menu" type="button">Menu</button>`
@@ -311,7 +357,7 @@ function renderAdminPortal(view, heading, content) {
     root.innerHTML = `
         <div class="admin-portal">
             <aside class="admin-sidebar">
-                <a class="admin-sidebar-brand" href="./chef.html"><span class="brand-mark">C</span><span>Campus Canteen<small>ADMIN CONSOLE</small></span></a>
+                <a class="admin-sidebar-brand" href="./admin.html"><span class="brand-mark">C</span><span>Campus Canteen<small>ADMIN CONSOLE</small></span></a>
                 <nav aria-label="Admin navigation">
                     <span class="admin-nav-label">WORKSPACE</span>
                     ${navigation.map(([key, icon, label]) => `<button class="admin-nav-link ${view === key ? "active" : ""}" data-view="${key}" type="button"><span aria-hidden="true">${icon}</span>${label}</button>`).join("")}
@@ -421,6 +467,20 @@ function renderMenu() {
     root.innerHTML = `
         <div class="customer-dashboard-layout">
             <section class="customer-menu-panel" aria-label="Canteen menu">
+                <section class="customer-menu-hero" aria-label="Fresh campus favorites">
+                    <div class="customer-menu-hero-copy">
+                        <span class="hero-kicker"><span aria-hidden="true">✦</span> FRESHLY MADE ON CAMPUS</span>
+                        <h2>Big flavor.<br><span>Easy pickup.</span></h2>
+                        <p>Your favorite campus bites, freshly prepared and ready when you are.</p>
+                        <a class="customer-menu-hero-cta" href="#menu-list">Explore the menu <span aria-hidden="true">↓</span></a>
+                    </div>
+                    <div class="customer-menu-hero-art">
+                        <span class="hero-art-orbit" aria-hidden="true"></span>
+                        <img class="hero-food-main" src="./static/assets/chicken-fried-rice.jpg" alt="Chicken fried rice with vegetables">
+                        <img class="hero-food-side" src="./static/assets/chicken-roll.jpg" alt="Fresh chicken rolls">
+                        <span class="hero-food-badge"><span aria-hidden="true">★</span> Campus favorite</span>
+                    </div>
+                </section>
                 <div class="customer-menu-toolbar">
                     <div class="customer-menu-title">
                         <span class="eyebrow">MADE FRESH ON CAMPUS</span>
@@ -442,7 +502,7 @@ function renderMenu() {
                     ${categoryList.map((category) => `<button class="filter-button ${activeCategory === category ? "active" : ""}" data-category="${escapeHtml(category)}" type="button"><span aria-hidden="true">${categoryIcon(category)}</span>${escapeHtml(category)}</button>`).join("")}
                 </div>
                 <div class="menu-section-heading"><h2>${menuSort === "featured" && activeCategory === "all" && !menuSearch ? "Popular dishes" : "Explore the menu"}</h2><span class="menu-result-count">${visibleFoods.length} ${visibleFoods.length === 1 ? "dish" : "dishes"}</span></div>
-                <section class="food-grid" aria-label="Canteen menu">
+                <section id="menu-list" class="food-grid" aria-label="Canteen menu">
                     ${visibleFoods.length ? visibleFoods.map((food) => `
                         <article class="food-card ${food.is_available ? "" : "unavailable"}">
                             <div class="food-art" aria-hidden="true">${foodImage(food) ? `<img src="${escapeHtml(foodImage(food))}" alt="" loading="lazy">` : `<span>${escapeHtml(food.emoji)}</span>`}</div>
@@ -801,7 +861,7 @@ async function loadChefDashboard() {
     const activeOrders = orders.filter((order) => !["Completed", "Cancelled"].includes(order.status));
     const pendingCount = activeOrders.filter((order) => order.status === "Pending").length;
     const preparingCount = activeOrders.filter((order) => order.status === "Preparing").length;
-    const readyCount = activeOrders.filter((order) => order.status === "Ready").length;
+    const readyCount = activeOrders.filter((order) => ["Ready", "Ready for Pickup"].includes(order.status)).length;
     renderAccountBar();
     root.innerHTML = `
         <section class="page-heading">
@@ -1219,7 +1279,7 @@ async function renderProfile() {
     setLoading("Loading your profile…");
     const { data, error } = await client
         .from("profiles")
-        .select("id,name,email,phone,delivery_address")
+        .select("id,name,email,phone")
         .eq("id", currentUser.id)
         .single();
     if (error) throw error;
@@ -1227,7 +1287,7 @@ async function renderProfile() {
     renderAccountBar();
     root.innerHTML = `
         <section class="page-heading">
-            <div><span class="eyebrow">MY PROFILE</span><h1>Account details</h1><p>Keep your contact and delivery information up to date.</p></div>
+            <div><span class="eyebrow">MY PROFILE</span><h1>Account details</h1><p>Keep your contact information up to date.</p></div>
         </section>
         <section class="profile-layout">
             <form id="profile-form" class="checkout-form">
@@ -1236,9 +1296,6 @@ async function renderProfile() {
                 </label>
                 <label>Phone number
                     <input name="phone" value="${escapeHtml(data.phone || "")}" type="tel" inputmode="tel" maxlength="20" required>
-                </label>
-                <label>Delivery address
-                    <textarea name="delivery_address" rows="4" maxlength="250" required>${escapeHtml(data.delivery_address || "")}</textarea>
                 </label>
                 <button class="button button-primary" type="submit">Save profile</button>
             </form>
@@ -1267,14 +1324,18 @@ async function onSession(session) {
         adminSeenOrderIds.clear();
         profile = null;
         cart = {};
-        renderAuth();
+        if (isKitchenPage) {
+            renderKitchenLogin();
+        } else {
+            renderAuth();
+        }
         return;
     }
 
     setLoading("Preparing your canteen…");
     const { data, error } = await client
         .from("profiles")
-        .select("id,name,email,role,phone,delivery_address")
+        .select("id,name,email,role,phone")
         .eq("id", currentUser.id)
         .single();
     if (error) throw error;
@@ -1285,14 +1346,28 @@ async function onSession(session) {
         renderAdminLogin({ confirmationMessage: "This account does not have administrator access. Ask the canteen owner to assign the admin role." });
         return;
     }
+    if (isKitchenPage && profile.role !== "chef") {
+        window.clearInterval(adminRefreshTimer);
+        adminRefreshTimer = undefined;
+        renderKitchenLogin({ confirmationMessage: "This account does not have kitchen access. Ask the canteen administrator to assign the Chef role." });
+        return;
+    }
     if (profile.role === "admin") {
+        if (isKitchenPage) {
+            renderKitchenLogin({ confirmationMessage: "Administrators must use the administrator console." });
+            return;
+        }
         await loadAdminDashboard();
         return;
     }
     if (profile.role === "chef") {
         window.clearInterval(adminRefreshTimer);
         adminRefreshTimer = undefined;
-        await loadChefDashboard();
+        if (isKitchenPage) {
+            await loadChefDashboard();
+        } else {
+            window.location.replace("./kitchen.html");
+        }
         return;
     }
 
@@ -1333,10 +1408,9 @@ async function submitAuth(form) {
     if (form.dataset.mode === "register") {
         const name = String(values.get("name") || "").trim();
         const phone = String(values.get("phone") || "").trim();
-        const deliveryAddress = String(values.get("delivery_address") || "").trim();
         const confirmPassword = String(values.get("confirm-password") || "").trim();
 
-        if (!name || !phone || !deliveryAddress || !email || !password) {
+        if (!name || !phone || !email || !password) {
             showNotice("Please complete all registration fields.", "error");
             return;
         }
@@ -1356,16 +1430,11 @@ async function submitAuth(form) {
             showNotice("Passwords do not match.", "error");
             return;
         }
-        if (deliveryAddress.length < 8) {
-            showNotice("Please provide a complete delivery address.", "error");
-            return;
-        }
-
         const { data, error } = await client.auth.signUp({
             email,
             password,
             options: {
-                data: { name, phone, delivery_address: deliveryAddress },
+                data: { name, phone },
                 emailRedirectTo: window.location.href
             }
         });
@@ -2357,10 +2426,9 @@ async function updateCustomerProfile(form) {
     const values = new FormData(form);
     const name = String(values.get("name") || "").trim();
     const phone = String(values.get("phone") || "").trim();
-    const deliveryAddress = String(values.get("delivery_address") || "").trim();
 
-    if (!name || !phone || !deliveryAddress) {
-        showNotice("Fill in your name, phone number, and delivery address.", "error");
+    if (!name || !phone) {
+        showNotice("Fill in your name and phone number.", "error");
         return;
     }
     if (!isValidPhone(phone)) {
@@ -2372,13 +2440,12 @@ async function updateCustomerProfile(form) {
         .from("profiles")
         .update({
             name,
-            phone,
-            delivery_address: deliveryAddress
+            phone
         })
         .eq("id", currentUser.id);
 
     if (error) throw error;
-    profile = { ...profile, name, phone, delivery_address: deliveryAddress };
+    profile = { ...profile, name, phone };
     showNotice("Profile updated successfully.", "success");
     await renderProfile();
 }

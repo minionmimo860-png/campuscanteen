@@ -178,6 +178,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .auth-intro > p { max-width: 410px; color: var(--muted); font-size: 1.08rem; line-height: 1.7; }
 .intro-note { margin-top: 30px; color: #53665b; font-weight: 650; }
 .intro-note span { margin-right: 8px; color: var(--orange); }
+.auth-food-gallery { position: relative; max-width: 480px; height: 245px; margin-top: 25px; }
+.auth-food-gallery img { position: absolute; display: block; object-fit: cover; box-shadow: 0 18px 38px rgba(58, 52, 33, .18); }
+.auth-food-main { top: 0; left: 22px; width: 62%; height: 215px; border: 5px solid #fff; border-radius: 26px; transform: rotate(-4deg); }
+.auth-food-side { top: 25px; right: 10px; width: 41%; height: 172px; border: 7px solid #fff; border-radius: 24px; transform: rotate(6deg); }
+.auth-food-badge { position: absolute; bottom: 0; left: 0; padding: 11px 15px; display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 8px; border: 1px solid rgba(32, 54, 43, .06); border-radius: 14px; background: #fff; box-shadow: 0 10px 24px rgba(32, 54, 43, .1); }
+.auth-food-badge > span { grid-row: span 2; color: #e7a12d; font-size: 1.3rem; }
+.auth-food-badge strong { color: #34453b; font-size: .79rem; }
+.auth-food-badge small { color: var(--muted); font-size: .7rem; }
 
 .auth-card, .setup-card {
     padding: clamp(24px, 4vw, 38px);
@@ -396,6 +404,22 @@ body:has(.customer-dashboard-layout) .nav-button.active { background: #e5f4eb; }
     box-shadow: 0 22px 65px rgba(87, 66, 30, .1);
 }
 .customer-menu-panel { min-width: 0; padding: 32px clamp(22px, 3.2vw, 46px) 40px; }
+.customer-menu-hero { position: relative; min-height: 225px; margin-bottom: 30px; padding: 24px clamp(20px, 3vw, 34px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, .82fr); align-items: center; overflow: hidden; border: 1px solid rgba(108, 87, 42, .08); border-radius: 23px; background: linear-gradient(112deg, #fff2d6 0%, #fff8e9 53%, #e8f4e9 100%); }
+.customer-menu-hero-copy { position: relative; z-index: 1; }
+.hero-kicker { display: inline-flex; align-items: center; gap: 7px; color: #a56c1d; font-size: .65rem; font-weight: 850; letter-spacing: .12em; }
+.hero-kicker span { color: #e7a12d; font-size: .9rem; }
+.customer-menu-hero h2 { margin: 10px 0 8px; color: #263b30; font-size: clamp(1.7rem, 3vw, 2.45rem); line-height: 1.02; letter-spacing: -.06em; }
+.customer-menu-hero h2 span { color: var(--green); }
+.customer-menu-hero-copy p { max-width: 350px; margin: 0 0 16px; color: #718078; font-size: .84rem; line-height: 1.55; }
+.customer-menu-hero-cta { min-height: 37px; padding: 8px 13px; display: inline-flex; align-items: center; gap: 9px; border-radius: 10px; background: var(--green); color: #fff; font-size: .76rem; font-weight: 750; text-decoration: none; transition: background-color .16s ease, transform .16s ease; }
+.customer-menu-hero-cta:hover { background: var(--green-dark); transform: translateY(-1px); }
+.customer-menu-hero-art { position: relative; min-width: 0; min-height: 180px; }
+.hero-art-orbit { position: absolute; top: 50%; right: 8%; width: 174px; height: 174px; border: 1px solid rgba(255, 255, 255, .75); border-radius: 50%; background: rgba(255, 255, 255, .27); transform: translateY(-50%); }
+.customer-menu-hero-art img { position: absolute; display: block; object-fit: cover; box-shadow: 0 14px 30px rgba(64, 56, 35, .2); }
+.hero-food-main { top: 50%; right: 8%; width: 74%; height: 174px; border: 5px solid #fff; border-radius: 22px; transform: translateY(-50%) rotate(3deg); }
+.hero-food-side { bottom: 0; left: 2%; width: 35%; height: 105px; border: 5px solid #fff; border-radius: 19px; transform: rotate(-8deg); }
+.hero-food-badge { position: absolute; top: 3px; right: 0; padding: 8px 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(108, 87, 42, .08); border-radius: 999px; background: #fff; color: #665027; box-shadow: 0 7px 18px rgba(64, 56, 35, .1); font-size: .68rem; font-weight: 750; }
+.hero-food-badge span { color: #e5a331; }
 .customer-menu-toolbar { margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 22px; }
 .customer-menu-title { flex: 0 0 auto; }
 .customer-menu-title .eyebrow { margin-bottom: 5px; font-size: .64rem; }
@@ -910,8 +934,21 @@ body:has(.admin-portal) .page-shell > .notice { position: fixed; z-index: 20; to
     .auth-intro h1 { font-size: clamp(2.7rem, 12vw, 4rem); }
     .auth-intro > p { margin-bottom: 10px; font-size: .98rem; }
     .intro-note { margin-top: 14px; font-size: .88rem; }
+    .auth-food-gallery { height: 205px; margin-top: 15px; }
+    .auth-food-main { height: 180px; }
+    .auth-food-side { height: 145px; }
     .auth-card { padding: 23px; }
     .customer-menu-panel { padding: 23px 16px 27px; }
+    .customer-menu-hero { min-height: 180px; margin-bottom: 23px; padding: 16px 14px; grid-template-columns: minmax(0, 1.1fr) minmax(112px, .75fr); border-radius: 18px; }
+    .customer-menu-hero h2 { margin: 8px 0 6px; font-size: clamp(1.35rem, 6vw, 1.8rem); }
+    .customer-menu-hero-copy p { margin-bottom: 10px; font-size: .69rem; }
+    .hero-kicker { font-size: .53rem; letter-spacing: .08em; }
+    .customer-menu-hero-cta { min-height: 32px; padding: 6px 9px; font-size: .66rem; }
+    .customer-menu-hero-art { min-height: 140px; }
+    .hero-art-orbit { right: 0; width: 112px; height: 112px; }
+    .hero-food-main { right: 0; width: 85%; height: 115px; border-width: 4px; border-radius: 16px; }
+    .hero-food-side { left: -2%; width: 43%; height: 67px; border-width: 4px; border-radius: 13px; }
+    .hero-food-badge { top: 4px; right: -5px; padding: 5px 7px; gap: 4px; font-size: .52rem; }
     .customer-menu-toolbar { align-items: flex-start; flex-direction: column; gap: 14px; }
     .customer-menu-controls { width: 100%; justify-content: stretch; }
     .customer-menu-controls .menu-search { flex: 1; }

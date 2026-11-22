@@ -1,6 +1,6 @@
 # Campus Canteen
 
-A static campus canteen ordering website hosted on GitHub Pages, with Supabase providing authentication, menu data, order storage, and staff permissions. Students can browse the menu, submit pickup orders, and track their status. Chefs get a kitchen queue of orders to prepare, can update preparation status, and can add menu items. Administrators use the protected `site/chef.html` console to manage orders, food, categories, customers, payments, inventory, reviews, reports, staff access, and account settings. Inventory counts are maintained by the canteen and are not automatically reduced when orders are placed.
+A static campus canteen ordering website hosted on GitHub Pages, with Supabase providing authentication, menu data, order storage, and staff permissions. Students can browse the menu, submit pickup orders, and track their status. Chefs get a kitchen queue of orders to prepare, can update preparation status, and can add menu items. Administrators use the protected `site/admin.html` console to manage orders, food, categories, customers, payments, inventory, reviews, reports, staff access, and account settings. Inventory counts are maintained by the canteen and are not automatically reduced when orders are placed.
 
 ## Set up Supabase
 
@@ -13,8 +13,8 @@ The schema creates the public `canteen-food-images` Storage bucket for admin foo
 
 ## Admin and chef access
 
-- Promote an existing, confirmed account to `admin` using the SQL in **Publish on GitHub Pages**. Open `site/chef.html` and sign in with that admin account to use the administration console. The page checks the profile role after authentication; there is no public admin registration.
-- Chefs continue to sign in from the customer sign-in page using **Chef sign in**. Their existing kitchen queue and menu access remain role-restricted.
+- Promote an existing, confirmed account to `admin` using the SQL in **Publish on GitHub Pages**. Open `site/admin.html` and sign in with that admin account to use the administration console. The page checks the profile role after authentication; there is no public admin registration.
+- Chefs use the separate [`site/kitchen.html`](./site/kitchen.html) kitchen console to view and prepare orders or manage menu availability. Existing chef accounts remain role-restricted.
 - When signed in, admins receive an in-app notice for newly placed customer orders while the admin site is open. The console checks for new orders every 20 seconds; keep it open to see incoming notices. To also email admins when an order is placed, deploy the notification function as described below.
 - The admin console summarizes paid revenue only for delivered/completed orders. Payment records are read-only; online payments must be confirmed by a verified payment provider, not by an admin UI action.
 - Food image uploads are validated in the browser and restricted by Supabase Storage to admin accounts, allowed image MIME types, and 5 MB. Supabase Storage must be available in the project.
@@ -79,7 +79,7 @@ For delivery to real users, configure a custom SMTP provider in Supabase **Authe
    );
    ```
 
-  The chef signs in with that account to see the kitchen order queue and add menu items. Chef access does not include editing existing items or managing inventory.
+  The chef opens [`site/kitchen.html`](./site/kitchen.html) and signs in with that account to see the kitchen order queue and add menu items. Chef access does not include editing existing items or managing inventory.
 
 ## Local preview
 
@@ -96,8 +96,9 @@ Then open `http://127.0.0.1:8000`. The local HTTP server only serves the website
 ```text
 site/                   Static website published by GitHub Pages
   index.html            App shell
-  chef.html             Admin console sign-in and dashboard
-  static/app.js         Customer, chef, and admin interfaces
+  admin.html            Admin console sign-in and dashboard
+  kitchen.html          Kitchen console sign-in and order queue
+  static/app.js         Customer, kitchen, and admin interfaces
   static/config.js      Supabase project URL and public browser key
   static/style.css      Responsive styles
 supabase/schema.sql     Database schema, menu seed, and access policies
